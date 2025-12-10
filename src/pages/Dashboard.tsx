@@ -4,6 +4,8 @@ import { RecentMeetings } from '@/components/dashboard/RecentMeetings';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { FunnelChart } from '@/components/dashboard/FunnelChart';
 import { useBusiness } from '@/contexts/BusinessContext';
+import { useState } from 'react';
+import { parseISO, isAfter, isBefore } from 'date-fns';
 
 import { useTerminology } from '@/hooks/useTerminology';
 
@@ -11,13 +13,33 @@ export default function Dashboard() {
   const { clients, meetings, deals, pipelineStages } = useBusiness();
   const terms = useTerminology();
 
-  const totalRevenue = clients.reduce((acc, client) => acc + client.totalValue, 0);
-  const activeClients = clients.filter(c => c.status === 'active').length;
-  const scheduledMeetings = meetings.filter(m => m.status === 'scheduled').length;
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [endDate, setEndDate] = useState<string | null>(null);
+  const [chartType, setChartType] = useState<'area' | 'bar' | 'line'>('area');
+
+  // Revenue and pipeline can be filtered by date range if provided
+  const filteredDeals = deals.filter((d) => {
+    if (!d.createdAt) return false;
+    const dt = parseISO(d.createdAt);
+    if (startDate && isBefore(dt, parseISO(startDate))) return false;
+    if (endDate && isAfter(dt, parseISO(endDate))) return false;
+    return true;
+  });
+
+  const totalRevenue = filteredDeals.reduce((acc, deal) => acc + deal.value, 0);
+  const activeClients = clients.filter((c) => c.status === 'active').length;
+  const scheduledMeetings = meetings.filter((m) => {
+    if (m.status !== 'scheduled') return false;
+    if (!m.date) return false;
+    const dt = parseISO(m.date);
+    if (startDate && isBefore(dt, parseISO(startDate))) return false;
+    if (endDate && isAfter(dt, parseISO(endDate))) return false;
+    return true;
+  }).length;
 
   // CRM Stats
-  const totalDeals = deals.length;
-  const pipelineValue = deals.reduce((acc, deal) => acc + deal.value, 0);
+  const totalDeals = filteredDeals.length;
+  const pipelineValue = filteredDeals.reduce((acc, deal) => acc + deal.value, 0);
 
   // Encontrar estágios "fechado" ou "won" para calcular conversões
   const closedStages = pipelineStages.filter(s =>
@@ -26,7 +48,7 @@ export default function Dashboard() {
     s.id === 'closed' ||
     s.id === 'won'
   );
-  const closedDeals = deals.filter(d => closedStages.some(s => s.id === d.stageId));
+  const closedDeals = filteredDeals.filter((d) => closedStages.some((s) => s.id === d.stageId));
   const closedValue = closedDeals.reduce((acc, deal) => acc + deal.value, 0);
 
   return (
@@ -37,6 +59,23 @@ export default function Dashboard() {
       </div>
 
       {/* Main Stats Grid */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm">Início:</label>
+          <input type="date" value={startDate ?? ''} onChange={(e) => setStartDate(e.target.value || null)} className="input input-sm" />
+          <label className="text-sm">Fim:</label>
+          <input type="date" value={endDate ?? ''} onChange={(e) => setEndDate(e.target.value || null)} className="input input-sm" />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm">Visualização:</label>
+          <select value={chartType} onChange={(e) => setChartType(e.target.value as any)} className="input input-sm">
+            <option value="area">Área</option>
+            <option value="bar">Barra</option>
+            <option value="line">Linha</option>
+          </select>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatsCard
           title="Faturamento Total"
@@ -86,10 +125,10 @@ export default function Dashboard() {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <RevenueChart />
+          <RevenueChart deals={deals} startDate={startDate ?? undefined} endDate={endDate ?? undefined} chartType={chartType} />
         </div>
         <div>
-          <RecentMeetings />
+          <RecentMeetings meetingsProp={meetings} startDate={startDate ?? undefined} endDate={endDate ?? undefined} />
         </div>
       </div>
 

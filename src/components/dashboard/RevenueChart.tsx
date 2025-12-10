@@ -1,69 +1,105 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+} from 'recharts';
+import { Deal } from '@/types';
+import { format, parseISO } from 'date-fns';
 
-const data = [
-  { month: 'Jan', revenue: 4500 },
-  { month: 'Fev', revenue: 5200 },
-  { month: 'Mar', revenue: 4800 },
-  { month: 'Abr', revenue: 6100 },
-  { month: 'Mai', revenue: 5900 },
-  { month: 'Jun', revenue: 7200 },
-  { month: 'Jul', revenue: 6800 },
-  { month: 'Ago', revenue: 7500 },
-  { month: 'Set', revenue: 8200 },
-  { month: 'Out', revenue: 7900 },
-  { month: 'Nov', revenue: 8500 },
-  { month: 'Dez', revenue: 9200 },
-];
+type ChartType = 'area' | 'bar' | 'line';
 
-export function RevenueChart() {
+function monthKey(date: Date) {
+  return format(date, 'yyyy-MM');
+}
+
+function monthLabel(key: string) {
+  const [y, m] = key.split('-');
+  const date = new Date(Number(y), Number(m) - 1, 1);
+  return format(date, 'MMM', { locale: undefined });
+}
+
+export function RevenueChart({
+  deals,
+  startDate,
+  endDate,
+  chartType = 'area',
+}: {
+  deals: Deal[];
+  startDate?: string | null;
+  endDate?: string | null;
+  chartType?: ChartType;
+}) {
+  // Filter deals by date range
+  const start = startDate ? parseISO(startDate) : null;
+  const end = endDate ? parseISO(endDate) : null;
+
+  const filtered = deals.filter((d) => {
+    if (!d.createdAt) return false;
+    const dt = parseISO(d.createdAt);
+    if (start && dt < start) return false;
+    if (end && dt > end) return false;
+    return true;
+  });
+
+  // Aggregate revenue per month
+  const map = new Map<string, number>();
+  filtered.forEach((d) => {
+    const k = monthKey(parseISO(d.createdAt));
+    map.set(k, (map.get(k) || 0) + (d.value || 0));
+  });
+
+  // Build sorted data
+  const sortedKeys = Array.from(map.keys()).sort();
+  const data = sortedKeys.map((k) => ({ month: monthLabel(k), revenue: map.get(k) || 0 }));
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Faturamento Mensal</CardTitle>
+        <CardTitle className="text-lg">Faturamento</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data}>
-              <defs>
-                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis
-                dataKey="month"
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `R$${value / 1000}k`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-                formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Faturamento']}
-              />
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="hsl(var(--chart-1))"
-                strokeWidth={2}
-                fillOpacity={1}
-                fill="url(#colorRevenue)"
-              />
-            </AreaChart>
+            {chartType === 'bar' ? (
+              <BarChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `R$${v / 1000}k`} />
+                <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Faturamento']} />
+                <Bar dataKey="revenue" fill="hsl(var(--chart-1))" />
+              </BarChart>
+            ) : chartType === 'line' ? (
+              <LineChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `R$${v / 1000}k`} />
+                <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Faturamento']} />
+                <Line type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" strokeWidth={2} />
+              </LineChart>
+            ) : (
+              <AreaChart data={data}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `R$${v / 1000}k`} />
+                <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Faturamento']} />
+                <Area type="monotone" dataKey="revenue" stroke="hsl(var(--chart-1))" fill="url(#colorRevenue)" />
+              </AreaChart>
+            )}
           </ResponsiveContainer>
         </div>
       </CardContent>

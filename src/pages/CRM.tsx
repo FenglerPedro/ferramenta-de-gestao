@@ -27,6 +27,7 @@ export default function CRM() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingDeal, setEditingDeal] = useState<string | null>(null);
     const [draggedDeal, setDraggedDeal] = useState<string | null>(null);
+    // closed and lost are always shown separately; kanban shows other stages
     const [formData, setFormData] = useState({
         clientName: '',
         clientEmail: '',
@@ -149,6 +150,8 @@ export default function CRM() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+                    {/* closed/lost will be shown above the kanban; no toggle needed */}
+
                     <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
                         <DialogTrigger asChild>
                             <Button className="gap-2 whitespace-nowrap">
@@ -243,53 +246,63 @@ export default function CRM() {
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="shrink-0 grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {/* Closed / Lost panels always visible above kanban */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <Card>
-                    <CardContent className="pt-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-primary/10">
-                                <TrendingUp className="h-5 w-5 text-primary" />
+                    <CardHeader>
+                        <CardTitle>Fechados</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {deals.filter(d => d.stageId === 'closed').length === 0 ? (
+                            <p className="text-sm text-muted-foreground">Nenhum deal fechado</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {deals.filter(d => d.stageId === 'closed').map(d => (
+                                    <div key={d.id} className="p-2 bg-muted rounded flex items-center justify-between">
+                                        <div>
+                                            <div className="font-medium">{d.title}</div>
+                                            <div className="text-xs text-muted-foreground">{d.clientName} — R$ {d.value.toLocaleString('pt-BR')}</div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Button size="sm" variant="ghost" onClick={() => moveDeal(d.id, 'lead')}>Reabrir</Button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">{terms.deals}</p>
-                                <p className="text-2xl font-bold">{totalDeals}</p>
-                            </div>
-                        </div>
+                        )}
                     </CardContent>
                 </Card>
+
                 <Card>
-                    <CardContent className="pt-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-accent/10">
-                                <DollarSign className="h-5 w-5 text-accent" />
+                    <CardHeader>
+                        <CardTitle>Perdidos</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {deals.filter(d => d.stageId === 'lost').length === 0 ? (
+                            <p className="text-sm text-muted-foreground">Nenhum deal perdido</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {deals.filter(d => d.stageId === 'lost').map(d => (
+                                    <div key={d.id} className="p-2 bg-muted rounded flex items-center justify-between">
+                                        <div>
+                                            <div className="font-medium">{d.title}</div>
+                                            <div className="text-xs text-muted-foreground">{d.clientName} — R$ {d.value.toLocaleString('pt-BR')}</div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Button size="sm" variant="ghost" onClick={() => moveDeal(d.id, 'lead')}>Reabrir</Button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Valor Total</p>
-                                <p className="text-2xl font-bold">R$ {totalValue.toLocaleString('pt-BR')}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-blue-500/10">
-                                <Users className="h-5 w-5 text-blue-500" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">Ativas</p>
-                                <p className="text-2xl font-bold">{activeDeals}</p>
-                            </div>
-                        </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Kanban Board */}
+            {/* Kanban (only non-closed/non-lost stages) */}
             <div className="flex-1 overflow-x-auto overflow-y-hidden">
                 <div className="flex gap-4 min-w-max h-full pb-4">
-                    {sortedStages.map((stage) => {
+                    {sortedStages.filter(s => s.id !== 'closed' && s.id !== 'lost').map((stage) => {
                         const stageDeals = getDealsForStage(stage.id);
                         const stageValue = getTotalValueForStage(stage.id);
 
@@ -393,6 +406,24 @@ export default function CRM() {
                             </div>
                         );
                     })}
+                </div>
+
+                {/* Bottom drop targets for Closed / Lost */}
+                <div className="mt-6 flex gap-4">
+                    <div
+                        className="flex-1 p-6 rounded-lg border border-border bg-red-50 text-center cursor-pointer"
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, 'lost')}
+                    >
+                        <strong>Arraste aqui para marcar como Perdido</strong>
+                    </div>
+                    <div
+                        className="flex-1 p-6 rounded-lg border border-border bg-green-50 text-center cursor-pointer"
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, 'closed')}
+                    >
+                        <strong>Arraste aqui para marcar como Fechado</strong>
+                    </div>
                 </div>
             </div>
         </div>

@@ -209,6 +209,27 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     saveToStorage({ clients, services, meetings, deals, pipelineStages, projectTasks, projectStages, settings });
   }, [clients, services, meetings, deals, pipelineStages, projectTasks, projectStages, settings]);
 
+  // Sincronizar dados quando há mudanças no localStorage (ex: em outras abas)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const newData = loadFromStorage();
+      if (newData) {
+        setClients(newData.clients);
+        setServices(newData.services);
+        setMeetings(newData.meetings);
+        setDeals(newData.deals);
+        setPipelineStages(newData.pipelineStages);
+        setProjectTasks(newData.projectTasks);
+        setProjectStages(newData.projectStages);
+        setSettings(newData.settings);
+      }
+    };
+
+    // Escuta mudanças de storage (sincroniza entre abas)
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
   // Client functions

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export interface Theme {
   id: string;
@@ -107,10 +108,11 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('app-theme');
-    if (saved) {
+    // Primeiro tenta carregar o tema salvo
+    const savedTheme = localStorage.getItem('app-theme');
+    if (savedTheme) {
       try {
-        return JSON.parse(saved);
+        return JSON.parse(savedTheme);
       } catch {
         return presetThemes[0];
       }
@@ -119,6 +121,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   });
 
   const [customThemes, setCustomThemes] = useState<Theme[]>(() => {
+    // Carrega os temas customizados salvos
     const saved = localStorage.getItem('custom-themes');
     if (saved) {
       try {
@@ -129,6 +132,63 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
     return [];
   });
+
+  // Efeito para restaurar o tema ao montar o componente (ao recarregar a página ou login)
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('app-theme');
+    const savedCustomThemes = localStorage.getItem('custom-themes');
+
+    if (savedCustomThemes) {
+      try {
+        const customThemesData = JSON.parse(savedCustomThemes);
+        setCustomThemes(customThemesData);
+      } catch {
+        console.error('Erro ao carregar temas customizados');
+      }
+    }
+
+    if (savedTheme) {
+      try {
+        const themeData = JSON.parse(savedTheme);
+        setCurrentTheme(themeData);
+      } catch {
+        console.error('Erro ao carregar tema salvo');
+      }
+    }
+  }, []);
+
+  // Efeito que escuta mudanças de autenticação (login/logout) para restaurar o tema
+  useEffect(() => {
+    if (!supabase) return;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      // Quando há mudança de autenticação, restaurar o tema do localStorage
+      const savedTheme = localStorage.getItem('app-theme');
+      const savedCustomThemes = localStorage.getItem('custom-themes');
+
+      if (savedCustomThemes) {
+        try {
+          const customThemesData = JSON.parse(savedCustomThemes);
+          setCustomThemes(customThemesData);
+        } catch {
+          console.error('Erro ao carregar temas customizados');
+        }
+      }
+
+      if (savedTheme) {
+        try {
+          const themeData = JSON.parse(savedTheme);
+          setCurrentTheme(themeData);
+        } catch {
+          console.error('Erro ao carregar tema salvo');
+        }
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   const applyTheme = (theme: Theme) => {
     const root = document.documentElement;

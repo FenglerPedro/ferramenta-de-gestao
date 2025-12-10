@@ -26,5 +26,6 @@ export const defaultPipelineStages: PipelineStage[] = [
     { id: 'lead', name: 'Lead', color: '#6366f1', order: 0 },
     { id: 'contact', name: 'Em Contato', color: '#f59e0b', order: 1 },
     { id: 'proposal', name: 'Proposta Enviada', color: '#3b82f6', order: 2 },
-    { id: 'closed', name: 'Fechado', color: '#22c55e', order: 3 },
+    { id: 'lost', name: 'Perdido', color: '#ef4444', order: 3 },
+    { id: 'closed', name: 'Fechado', color: '#22c55e', order: 4 },
 ];

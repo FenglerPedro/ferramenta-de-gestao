@@ -11,7 +11,7 @@ export default function AuthLayout() {
                     <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
                         <Rocket className="h-5 w-5 text-primary-foreground" />
                     </div>
-                    <span>Antigravity</span>
+                    <span>Centro de Gestão</span>
                 </div>
 
                 <div className="space-y-4">

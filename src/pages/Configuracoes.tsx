@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +49,49 @@ export default function Configuracoes() {
       6: { enabled: false, startTime: '09:00', endTime: '18:00' },
     },
   });
+
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
+  const [lastSavedData, setLastSavedData] = useState(formData);
+
+  // Auto-save com debounce (salva após 2 segundos sem mudanças)
+  useEffect(() => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      if (JSON.stringify(formData) !== JSON.stringify(lastSavedData)) {
+        updateSettings(formData);
+        setLastSavedData(formData);
+        toast.success('Configurações salvas automaticamente!', { duration: 2 });
+      }
+    }, 2000);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [formData, lastSavedData, updateSettings]);
+
+  // Sincroniza o estado local do formulário quando as configurações do contexto mudam
+  useEffect(() => {
+    const synced = {
+      ...settings,
+      daySchedules: settings.daySchedules || {
+        0: { enabled: false, startTime: '09:00', endTime: '18:00' },
+        1: { enabled: true, startTime: '09:00', endTime: '18:00' },
+        2: { enabled: true, startTime: '09:00', endTime: '18:00' },
+        3: { enabled: true, startTime: '09:00', endTime: '18:00' },
+        4: { enabled: true, startTime: '09:00', endTime: '18:00' },
+        5: { enabled: true, startTime: '09:00', endTime: '18:00' },
+        6: { enabled: false, startTime: '09:00', endTime: '18:00' },
+      },
+    };
+
+    setFormData(synced);
+    setLastSavedData(synced);
+  }, [settings]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -142,6 +185,7 @@ export default function Configuracoes() {
 
   const handleSave = () => {
     updateSettings(formData);
+    setLastSavedData(formData);
     toast.success('Configurações salvas com sucesso!');
   };
 
@@ -446,7 +490,12 @@ export default function Configuracoes() {
 
       <ThemeCustomizer />
 
-      <div className="flex justify-end">
+      <div className="flex justify-end items-center gap-4">
+        {JSON.stringify(formData) === JSON.stringify(lastSavedData) ? (
+          <p className="text-sm text-green-600">✓ Todas as alterações foram salvas</p>
+        ) : (
+          <p className="text-sm text-amber-600">⏱ Salvando automaticamente...</p>
+        )}
         <Button onClick={handleSave} className="gap-2">
           <Save className="h-4 w-4" />
           Salvar Configurações
