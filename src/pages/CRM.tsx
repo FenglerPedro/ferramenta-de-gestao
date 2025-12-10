@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { Deal } from '@/types';
-import { Plus, Search, Phone, Mail, MoreVertical, Pencil, Trash2, DollarSign, TrendingUp, Users } from 'lucide-react';
+import { Plus, Search, Phone, Mail, MoreVertical, Pencil, Trash2, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import {
     DropdownMenu,
@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 import { useTerminology } from '@/hooks/useTerminology';
+import { HistoryViews } from '@/components/crm/HistoryViews';
+import { PipelineSettings } from '@/components/settings/PipelineSettings';
 
 export default function CRM() {
     const { deals, pipelineStages, addDeal, updateDeal, deleteDeal, moveDeal } = useBusiness();
@@ -133,8 +135,8 @@ export default function CRM() {
     const activeDeals = deals.filter(d => d.stageId !== 'closed' && d.stageId !== 'lost').length;
 
     return (
-        <div className="h-full flex flex-col overflow-hidden">
-            {/* Fixed Header - não rola horizontalmente */}
+        <div className="h-full flex flex-col overflow-hidden w-full relative">
+            {/* Fixed Header */}
             <div className="shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4">
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">{terms.crm}</h1>
@@ -150,7 +152,19 @@ export default function CRM() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    {/* closed/lost will be shown above the kanban; no toggle needed */}
+
+                    <HistoryViews />
+
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" title="Configurar Funil">
+                                <Settings className="h-5 w-5" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-xl">
+                            <PipelineSettings />
+                        </DialogContent>
+                    </Dialog>
 
                     <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
                         <DialogTrigger asChild>
@@ -246,186 +260,146 @@ export default function CRM() {
                 </div>
             </div>
 
-            {/* Closed / Lost panels always visible above kanban */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Fechados</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {deals.filter(d => d.stageId === 'closed').length === 0 ? (
-                            <p className="text-sm text-muted-foreground">Nenhum deal fechado</p>
-                        ) : (
-                            <div className="space-y-2">
-                                {deals.filter(d => d.stageId === 'closed').map(d => (
-                                    <div key={d.id} className="p-2 bg-muted rounded flex items-center justify-between">
-                                        <div>
-                                            <div className="font-medium">{d.title}</div>
-                                            <div className="text-xs text-muted-foreground">{d.clientName} — R$ {d.value.toLocaleString('pt-BR')}</div>
+            {/* Main Content Area: Kanban + Bottom Drop Zones */}
+            <div className="flex-1 relative overflow-hidden">
+
+                {/* Kanban Scrollable Area */}
+                <div className="absolute inset-0 overflow-x-auto overflow-y-hidden">
+                    <div className="flex gap-4 h-full p-4 pb-48 min-w-max">
+                        {sortedStages.filter(s => s.id !== 'closed' && s.id !== 'lost').map((stage) => {
+                            const stageDeals = getDealsForStage(stage.id);
+                            const stageValue = getTotalValueForStage(stage.id);
+
+                            return (
+                                <div
+                                    key={stage.id}
+                                    className="w-80 flex flex-col bg-muted/30 rounded-lg h-full"
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDrop(e, stage.id)}
+                                >
+                                    {/* Column Header */}
+                                    <div className="p-3 border-b border-border shrink-0">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div
+                                                    className="w-3 h-3 rounded-full"
+                                                    style={{ backgroundColor: stage.color }}
+                                                />
+                                                <h3 className="font-semibold text-foreground">{stage.name}</h3>
+                                                <Badge variant="secondary" className="ml-1">
+                                                    {stageDeals.length}
+                                                </Badge>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button size="sm" variant="ghost" onClick={() => moveDeal(d.id, 'lead')}>Reabrir</Button>
-                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            R$ {stageValue.toLocaleString('pt-BR')}
+                                        </p>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Perdidos</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {deals.filter(d => d.stageId === 'lost').length === 0 ? (
-                            <p className="text-sm text-muted-foreground">Nenhum deal perdido</p>
-                        ) : (
-                            <div className="space-y-2">
-                                {deals.filter(d => d.stageId === 'lost').map(d => (
-                                    <div key={d.id} className="p-2 bg-muted rounded flex items-center justify-between">
-                                        <div>
-                                            <div className="font-medium">{d.title}</div>
-                                            <div className="text-xs text-muted-foreground">{d.clientName} — R$ {d.value.toLocaleString('pt-BR')}</div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button size="sm" variant="ghost" onClick={() => moveDeal(d.id, 'lead')}>Reabrir</Button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Kanban (only non-closed/non-lost stages) */}
-            <div className="flex-1 overflow-x-auto overflow-y-hidden">
-                <div className="flex gap-4 min-w-max h-full pb-4">
-                    {sortedStages.filter(s => s.id !== 'closed' && s.id !== 'lost').map((stage) => {
-                        const stageDeals = getDealsForStage(stage.id);
-                        const stageValue = getTotalValueForStage(stage.id);
-
-                        return (
-                            <div
-                                key={stage.id}
-                                className="w-80 flex flex-col bg-muted/30 rounded-lg"
-                                onDragOver={handleDragOver}
-                                onDrop={(e) => handleDrop(e, stage.id)}
-                            >
-                                {/* Column Header */}
-                                <div className="p-3 border-b border-border">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div
-                                                className="w-3 h-3 rounded-full"
-                                                style={{ backgroundColor: stage.color }}
-                                            />
-                                            <h3 className="font-semibold text-foreground">{stage.name}</h3>
-                                            <Badge variant="secondary" className="ml-1">
-                                                {stageDeals.length}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        R$ {stageValue.toLocaleString('pt-BR')}
-                                    </p>
-                                </div>
-
-                                {/* Column Content */}
-                                <div className="flex-1 p-2 space-y-2 overflow-y-auto">
-                                    {stageDeals.map((deal) => (
-                                        <Card
-                                            key={deal.id}
-                                            draggable
-                                            onDragStart={(e) => handleDragStart(e, deal.id)}
-                                            onDragEnd={handleDragEnd}
-                                            className={`cursor-grab active:cursor-grabbing transition-all ${draggedDeal === deal.id ? 'opacity-50 scale-95' : 'hover:shadow-md'
-                                                }`}
-                                        >
-                                            <CardContent className="p-3">
-                                                <div className="flex items-start justify-between gap-2">
-                                                    <div className="flex-1 min-w-0">
-                                                        <h4 className="font-medium text-sm text-foreground truncate">
-                                                            {deal.title}
-                                                        </h4>
-                                                        <p className="text-xs text-muted-foreground truncate">
-                                                            {deal.clientName}
-                                                        </p>
+                                    {/* Column Content - Scrollable */}
+                                    <div className="flex-1 p-2 space-y-2 overflow-y-auto min-h-0 pb-40">
+                                        {stageDeals.map((deal) => (
+                                            <Card
+                                                key={deal.id}
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, deal.id)}
+                                                onDragEnd={handleDragEnd}
+                                                className={`cursor-grab active:cursor-grabbing transition-all ${draggedDeal === deal.id ? 'opacity-50 scale-95' : 'hover:shadow-md'
+                                                    }`}
+                                            >
+                                                <CardContent className="p-3">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex-1 min-w-0">
+                                                            <h4 className="font-medium text-sm text-foreground truncate">
+                                                                {deal.title}
+                                                            </h4>
+                                                            <p className="text-xs text-muted-foreground truncate">
+                                                                {deal.clientName}
+                                                            </p>
+                                                        </div>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7">
+                                                                    <MoreVertical className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem onClick={() => handleEdit(deal)}>
+                                                                    <Pencil className="h-4 w-4 mr-2" />
+                                                                    Editar
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => handleDelete(deal.id)}
+                                                                    className="text-destructive"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                                    Excluir
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                     </div>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-7 w-7">
-                                                                <MoreVertical className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => handleEdit(deal)}>
-                                                                <Pencil className="h-4 w-4 mr-2" />
-                                                                Editar
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem
-                                                                onClick={() => handleDelete(deal.id)}
-                                                                className="text-destructive"
-                                                            >
-                                                                <Trash2 className="h-4 w-4 mr-2" />
-                                                                Excluir
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </div>
-                                                <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-                                                    {deal.clientEmail && (
-                                                        <span className="flex items-center gap-1">
-                                                            <Mail className="h-3 w-3" />
-                                                            <span className="truncate max-w-24">{deal.clientEmail}</span>
+                                                    <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                                                        {deal.clientEmail && (
+                                                            <span className="flex items-center gap-1">
+                                                                <Mail className="h-3 w-3" />
+                                                                <span className="truncate max-w-24">{deal.clientEmail}</span>
+                                                            </span>
+                                                        )}
+                                                        {deal.clientPhone && (
+                                                            <span className="flex items-center gap-1">
+                                                                <Phone className="h-3 w-3" />
+                                                                {deal.clientPhone}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="mt-2 pt-2 border-t border-border">
+                                                        <span className="text-sm font-semibold text-foreground">
+                                                            R$ {deal.value.toLocaleString('pt-BR')}
                                                         </span>
-                                                    )}
-                                                    {deal.clientPhone && (
-                                                        <span className="flex items-center gap-1">
-                                                            <Phone className="h-3 w-3" />
-                                                            {deal.clientPhone}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="mt-2 pt-2 border-t border-border">
-                                                    <span className="text-sm font-semibold text-foreground">
-                                                        R$ {deal.value.toLocaleString('pt-BR')}
-                                                    </span>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
 
-                                    {stageDeals.length === 0 && (
-                                        <div className="flex items-center justify-center h-24 border-2 border-dashed border-muted-foreground/20 rounded-lg">
-                                            <p className="text-sm text-muted-foreground">Arraste cards aqui</p>
-                                        </div>
-                                    )}
+                                        {stageDeals.length === 0 && (
+                                            <div className="flex items-center justify-center h-24 border-2 border-dashed border-muted-foreground/20 rounded-lg">
+                                                <p className="text-sm text-muted-foreground">Arraste cards aqui</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
 
-                {/* Bottom drop targets for Closed / Lost */}
-                <div className="mt-6 flex gap-4">
-                    <div
-                        className="flex-1 p-6 rounded-lg border border-border bg-red-50 text-center cursor-pointer"
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, 'lost')}
-                    >
-                        <strong>Arraste aqui para marcar como Perdido</strong>
-                    </div>
-                    <div
-                        className="flex-1 p-6 rounded-lg border border-border bg-green-50 text-center cursor-pointer"
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, 'closed')}
-                    >
-                        <strong>Arraste aqui para marcar como Fechado</strong>
+                {/* Bottom Drop Targets - Fixed/Absolute Bottom */}
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t z-50">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div
+                            className="p-6 rounded-lg border-2 border-dashed border-red-200 bg-red-50/50 hover:bg-red-50 hover:border-red-300 text-center cursor-pointer transition-colors"
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleDrop(e, 'lost')}
+                        >
+                            <div className="flex flex-col items-center gap-2 text-red-700">
+                                <span className="font-semibold text-lg">Perdido</span>
+                                <span className="text-sm opacity-80">Arraste aqui para marcar como perdido</span>
+                            </div>
+                        </div>
+                        <div
+                            className="p-6 rounded-lg border-2 border-dashed border-green-200 bg-green-50/50 hover:bg-green-50 hover:border-green-300 text-center cursor-pointer transition-colors"
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleDrop(e, 'closed')}
+                        >
+                            <div className="flex flex-col items-center gap-2 text-green-700">
+                                <span className="font-semibold text-lg">Fechado</span>
+                                <span className="text-sm opacity-80">Arraste aqui para marcar como ganho</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+
         </div>
     );
 }

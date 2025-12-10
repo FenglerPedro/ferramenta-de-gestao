@@ -63,6 +63,11 @@ export function PipelineSettings() {
     };
 
     const handleDelete = (id: string) => {
+        if (id === 'closed' || id === 'lost') {
+            toast.error('Estágios padrão não podem ser removidos');
+            return;
+        }
+
         if (pipelineStages.length <= 1) {
             toast.error('Você precisa ter pelo menos uma coluna');
             return;
@@ -153,8 +158,14 @@ export function PipelineSettings() {
                                     <Button size="icon" variant="ghost" onClick={() => handleEdit(stage)}>
                                         <Pencil className="h-4 w-4" />
                                     </Button>
-                                    <Button size="icon" variant="ghost" onClick={() => handleDelete(stage.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => handleDelete(stage.id)}
+                                        disabled={stage.id === 'closed' || stage.id === 'lost'}
+                                        title={stage.id === 'closed' || stage.id === 'lost' ? 'Este estágio não pode ser removido' : 'Remover estágio'}
+                                    >
+                                        <Trash2 className={`h-4 w-4 ${stage.id === 'closed' || stage.id === 'lost' ? 'text-muted-foreground opacity-50' : 'text-destructive'}`} />
                                     </Button>
                                 </>
                             )}
