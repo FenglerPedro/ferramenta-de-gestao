@@ -10,7 +10,7 @@ import { parseISO, isAfter, isBefore, subDays, format } from 'date-fns';
 import { useTerminology } from '@/hooks/useTerminology';
 
 export default function Dashboard() {
-  const { clients, meetings, deals, pipelineStages } = useBusiness();
+  const { clients, meetings, deals, pipelineStages, transactions } = useBusiness();
   const terms = useTerminology();
 
   // Default to last 30 days
@@ -63,8 +63,18 @@ export default function Dashboard() {
   }).length;
 
   // CRM Stats
-  const totalDeals = filteredDeals.length;
-  const pipelineValue = filteredDeals.reduce((acc, deal) => acc + deal.value, 0);
+  // CRM Stats
+  // Filter active deals (excluding closed/won/lost) for pipeline metrics
+  const activeDealsList = filteredDeals.filter(d =>
+    !d.stageId.includes('closed') &&
+    !d.stageId.includes('won') &&
+    d.stageId !== 'lost' &&
+    d.stageId !== 'fechado' &&
+    d.stageId !== 'ganho'
+  );
+
+  const totalDeals = activeDealsList.length;
+  const pipelineValue = activeDealsList.reduce((acc, deal) => acc + deal.value, 0);
 
   // Encontrar estágios "fechado" ou "won" para calcular conversões
   const closedStages = pipelineStages.filter(s =>
@@ -147,7 +157,7 @@ export default function Dashboard() {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <RevenueChart deals={deals} startDate={startDate ?? undefined} endDate={endDate ?? undefined} chartType={chartType} />
+          <RevenueChart transactions={transactions} startDate={startDate ?? undefined} endDate={endDate ?? undefined} chartType={chartType} />
         </div>
         <div>
           <RecentMeetings meetingsProp={meetings} startDate={startDate ?? undefined} endDate={endDate ?? undefined} />

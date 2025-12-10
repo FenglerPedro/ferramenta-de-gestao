@@ -12,7 +12,7 @@ import {
   LineChart,
   Line,
 } from 'recharts';
-import { Deal } from '@/types';
+import { Transaction } from '@/types';
 import { format, parseISO } from 'date-fns';
 
 type ChartType = 'area' | 'bar' | 'line';
@@ -28,23 +28,23 @@ function monthLabel(key: string) {
 }
 
 export function RevenueChart({
-  deals,
+  transactions,
   startDate,
   endDate,
   chartType = 'area',
 }: {
-  deals: Deal[];
+  transactions: Transaction[];
   startDate?: string | null;
   endDate?: string | null;
   chartType?: ChartType;
 }) {
-  // Filter deals by date range
+  // Filter transactions by date range and status 'paid'
   const start = startDate ? parseISO(startDate) : null;
   const end = endDate ? parseISO(endDate) : null;
 
-  const filtered = deals.filter((d) => {
-    if (!d.createdAt) return false;
-    const dt = parseISO(d.createdAt);
+  const filtered = transactions.filter((t) => {
+    if (t.status !== 'paid') return false;
+    const dt = parseISO(t.date);
     if (start && dt < start) return false;
     if (end && dt > end) return false;
     return true;
@@ -52,9 +52,9 @@ export function RevenueChart({
 
   // Aggregate revenue per month
   const map = new Map<string, number>();
-  filtered.forEach((d) => {
-    const k = monthKey(parseISO(d.createdAt));
-    map.set(k, (map.get(k) || 0) + (d.value || 0));
+  filtered.forEach((t) => {
+    const k = monthKey(parseISO(t.date));
+    map.set(k, (map.get(k) || 0) + (t.amount || 0));
   });
 
   // Build sorted data
