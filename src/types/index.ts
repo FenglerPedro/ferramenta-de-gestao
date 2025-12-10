@@ -10,6 +10,7 @@ export interface Client {
   isRecurring: boolean;
   monthlyValue?: number;
   status: 'active' | 'inactive' | 'pending';
+  sourceDealId?: string;
 }
 
 export interface Service {

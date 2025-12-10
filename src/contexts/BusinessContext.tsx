@@ -62,98 +62,13 @@ const defaultSettings: BusinessSettings = {
   blockedTimeSlots: [],
 };
 
-const defaultClients: Client[] = [
-  {
-    id: '1',
-    name: 'Maria Silva',
-    email: 'maria@email.com',
-    phone: '(11) 98765-4321',
-    service: 'Consultoria Premium',
-    services: ['Consultoria Premium'],
-    totalValue: 5000,
-    purchaseDate: '2024-01-15',
-    isRecurring: true,
-    monthlyValue: 500,
-    status: 'active',
-  },
-  {
-    id: '2',
-    name: 'João Santos',
-    email: 'joao@email.com',
-    phone: '(11) 91234-5678',
-    service: 'Mentoria Individual',
-    services: ['Mentoria Individual'],
-    totalValue: 3000,
-    purchaseDate: '2024-02-01',
-    isRecurring: false,
-    status: 'active',
-  },
-];
+const defaultClients: Client[] = [];
 
-const defaultServices: Service[] = [
-  {
-    id: '1',
-    name: 'Consultoria Premium',
-    description: 'Acompanhamento completo do seu negócio com reuniões semanais e suporte ilimitado.',
-    price: 5000,
-    duration: '3 meses',
-    isRecurring: true,
-  },
-  {
-    id: '2',
-    name: 'Mentoria Individual',
-    description: 'Sessões personalizadas para desenvolver habilidades específicas.',
-    price: 3000,
-    duration: '1 mês',
-    isRecurring: false,
-  },
-];
+const defaultServices: Service[] = [];
 
-const defaultMeetings: Meeting[] = [
-  {
-    id: '1',
-    clientName: 'Maria Silva',
-    clientEmail: 'maria@email.com',
-    date: '2024-12-10',
-    time: '10:00',
-    duration: 60,
-    status: 'scheduled',
-  },
-  {
-    id: '2',
-    clientName: 'João Santos',
-    clientEmail: 'joao@email.com',
-    date: '2024-12-11',
-    time: '14:00',
-    duration: 60,
-    status: 'scheduled',
-  },
-];
+const defaultMeetings: Meeting[] = [];
 
-const defaultDeals: Deal[] = [
-  {
-    id: '1',
-    clientName: 'Ana Costa',
-    clientEmail: 'ana@email.com',
-    clientPhone: '(11) 99999-1111',
-    title: 'Pacote Consultoria Completa',
-    value: 8000,
-    stageId: 'lead',
-    createdAt: '2024-12-01',
-    updatedAt: '2024-12-01',
-  },
-  {
-    id: '2',
-    clientName: 'Carlos Lima',
-    clientEmail: 'carlos@email.com',
-    clientPhone: '(11) 99999-2222',
-    title: 'Mentoria 3 meses',
-    value: 4500,
-    stageId: 'contact',
-    createdAt: '2024-12-05',
-    updatedAt: '2024-12-07',
-  },
-];
+const defaultDeals: Deal[] = [];
 
 interface StoredData {
   clients: Client[];
@@ -302,9 +217,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
 
     // Se moveu para "Fechado" e ainda não existe cliente com este email
     if (isClosedStage && deal) {
-      const clientExists = clients.some(c => c.email === deal.clientEmail);
+      const clientExists = clients.some(c => c.sourceDealId === deal.id || (c.email === deal.clientEmail && deal.clientEmail));
 
-      if (!clientExists && deal.clientEmail) {
+      if (!clientExists) {
         // Criar novo cliente automaticamente
         const newClient: Omit<Client, 'id'> = {
           name: deal.clientName,
@@ -316,9 +231,16 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
           purchaseDate: now,
           isRecurring: false,
           status: 'active',
+          sourceDealId: dealId,
         };
 
         addClient(newClient);
+      }
+    } else if (!isClosedStage && deal) {
+      // Se saiu de "Fechado", remover cliente associado
+      const clientToRemove = clients.find(c => c.sourceDealId === deal.id);
+      if (clientToRemove) {
+        deleteClient(clientToRemove.id);
       }
     }
 

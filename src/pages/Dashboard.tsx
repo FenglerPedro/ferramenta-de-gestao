@@ -32,6 +32,15 @@ export default function Dashboard() {
     if (m.status !== 'scheduled') return false;
     if (!m.date) return false;
     const dt = parseISO(m.date);
+
+    // Only count meetings from today onwards (ignore past scheduled meetings that weren't closed)
+    // unless a specific historical range is selected (which implies looking at history)
+    // Actually, "Próximas Reuniões" (Upcoming Meetings) implies future relative to NOW.
+    // So we should enforce that date >= today.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (isBefore(dt, today)) return false;
+
     if (startDate && isBefore(dt, parseISO(startDate))) return false;
     if (endDate && isAfter(dt, parseISO(endDate))) return false;
     return true;

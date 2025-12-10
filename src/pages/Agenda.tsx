@@ -14,7 +14,7 @@ import { AppointmentCard } from '@/components/agenda/AppointmentCard';
 import { useTerminology } from '@/hooks/useTerminology';
 
 export default function Agenda() {
-  const { meetings, addMeeting, updateMeeting, deleteMeeting } = useBusiness();
+  const { meetings, addMeeting, updateMeeting, deleteMeeting, settings } = useBusiness();
   const terms = useTerminology();
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -27,9 +27,12 @@ export default function Agenda() {
   });
 
   const timeSlots: string[] = [];
-  for (let hour = 9; hour <= 18; hour++) {
+  const startHour = parseInt(settings.availableHours.start.split(':')[0]);
+  const endHour = parseInt(settings.availableHours.end.split(':')[0]);
+
+  for (let hour = startHour; hour <= endHour; hour++) {
     timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
-    if (hour < 18) timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
+    if (hour < endHour) timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
   }
 
   const getOccupiedSlots = (date: Date) => {
@@ -111,10 +114,28 @@ export default function Agenda() {
     return meetings.filter((m) => isSameDay(parseISO(m.date), date));
   };
 
+  const isDayBlocked = (date: Date) => {
+    // Check blocked days of week
+    const dayOfWeek = parseInt(format(date, 'i')) % 7; // 0=Sunday, 6=Saturday
+    if (!settings.availableDays.includes(dayOfWeek)) return true;
+    if (settings.daySchedules[dayOfWeek] && !settings.daySchedules[dayOfWeek].enabled) return true;
+
+    // Check specific blocked dates
+    const dateStr = format(date, 'yyyy-MM-dd');
+    if (settings.blockedDates.some(bd => bd.date === dateStr)) return true;
+
+    return false;
+  };
+
   const handleDayClick = (date: Date) => {
+    if (isDayBlocked(date)) {
+      toast.error('Este dia não está disponível para atendimentos.');
+      return;
+    }
+
     setSelectedDate(date);
     const availableSlots = getAvailableSlots(date);
-    const firstAvailable = availableSlots.length > 0 ? availableSlots[0] : '09:00';
+    const firstAvailable = availableSlots.length > 0 ? availableSlots[0] : settings.availableHours.start;
     setNewMeeting({ clientName: '', clientEmail: '', time: firstAvailable, duration: 60 });
     setIsDialogOpen(true);
   };
@@ -248,26 +269,33 @@ export default function Agenda() {
             const isSelected = isSameDay(dayDate, selectedDate);
             const isTodayDate = isToday(dayDate);
 
+            const isBlocked = isDayBlocked(dayDate);
+
             return (
               <div
                 key={index}
                 onClick={() => handleDayClick(dayDate)}
-                className={`border-b border-r last:border-r-0 p-1 min-h-[100px] cursor-pointer hover:bg-muted/50 transition-colors ${!isCurrentMonth ? 'bg-muted/20' : ''
-                  }`}
+                className={`border-b border-r last:border-r-0 p-1 min-h-[100px] transition-colors 
+                  ${!isCurrentMonth ? 'bg-muted/20' : ''}
+                  ${isBlocked ? 'bg-red-50/50 dark:bg-red-900/10 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/50'}
+                `}
               >
                 <div className="flex justify-center mb-1">
                   <span
                     className={`text-sm w-7 h-7 flex items-center justify-center rounded-full ${isTodayDate
-                        ? 'bg-primary text-primary-foreground font-semibold'
-                        : isSelected
-                          ? 'bg-accent text-accent-foreground'
-                          : !isCurrentMonth
-                            ? 'text-muted-foreground'
-                            : 'text-foreground'
+                      ? 'bg-primary text-primary-foreground font-semibold'
+                      : isSelected
+                        ? 'bg-accent text-accent-foreground'
+                        : !isCurrentMonth
+                          ? 'text-muted-foreground'
+                          : 'text-foreground'
                       }`}
                   >
                     {format(dayDate, 'd')}
                   </span>
+                  {isBlocked && (
+                    <span className="text-[10px] text-red-500 font-medium ml-1">Fechado</span>
+                  )}
                 </div>
                 <div className="space-y-0.5 overflow-y-auto max-h-[calc(100%-28px)]">
                   {dayMeetings.map((meeting) => (
