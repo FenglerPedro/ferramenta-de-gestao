@@ -5,7 +5,7 @@ import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { FunnelChart } from '@/components/dashboard/FunnelChart';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useState } from 'react';
-import { parseISO, isAfter, isBefore } from 'date-fns';
+import { parseISO, isAfter, isBefore, subDays, format } from 'date-fns';
 
 import { useTerminology } from '@/hooks/useTerminology';
 
@@ -13,11 +13,16 @@ export default function Dashboard() {
   const { clients, meetings, deals, pipelineStages } = useBusiness();
   const terms = useTerminology();
 
-  const [startDate, setStartDate] = useState<string | null>(null);
-  const [endDate, setEndDate] = useState<string | null>(null);
+  // Default to last 30 days
+  const [startDate, setStartDate] = useState<string | null>(
+    format(subDays(new Date(), 30), 'yyyy-MM-dd')
+  );
+  const [endDate, setEndDate] = useState<string | null>(
+    format(new Date(), 'yyyy-MM-dd')
+  );
   const [chartType, setChartType] = useState<'area' | 'bar' | 'line'>('area');
 
-  // Revenue and pipeline can be filtered by date range if provided
+  // Filter deals
   const filteredDeals = deals.filter((d) => {
     if (!d.createdAt) return false;
     const dt = parseISO(d.createdAt);
@@ -26,21 +31,32 @@ export default function Dashboard() {
     return true;
   });
 
-  const totalRevenue = filteredDeals.reduce((acc, deal) => acc + deal.value, 0);
+  // Filter clients for revenue calculation (using purchaseDate)
+  const filteredClients = clients.filter((c) => {
+    if (!c.purchaseDate) return false;
+    const dt = parseISO(c.purchaseDate);
+    if (startDate && isBefore(dt, parseISO(startDate))) return false;
+    if (endDate && isAfter(dt, parseISO(endDate))) return false;
+    return true;
+  });
+
+  // Revenue from Clients
+  const totalRevenue = filteredClients.reduce((acc, client) => acc + client.totalValue, 0);
+
   const activeClients = clients.filter((c) => c.status === 'active').length;
+
+  // Scheduled meetings check (future only + date range)
   const scheduledMeetings = meetings.filter((m) => {
     if (m.status !== 'scheduled') return false;
     if (!m.date) return false;
     const dt = parseISO(m.date);
 
-    // Only count meetings from today onwards (ignore past scheduled meetings that weren't closed)
-    // unless a specific historical range is selected (which implies looking at history)
-    // Actually, "Próximas Reuniões" (Upcoming Meetings) implies future relative to NOW.
-    // So we should enforce that date >= today.
+    // Only future meetings
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (isBefore(dt, today)) return false;
 
+    // Apply date range filter if set
     if (startDate && isBefore(dt, parseISO(startDate))) return false;
     if (endDate && isAfter(dt, parseISO(endDate))) return false;
     return true;
@@ -91,14 +107,12 @@ export default function Dashboard() {
           value={`R$ ${totalRevenue.toLocaleString('pt-BR')}`}
           subtitle={`Valor total de ${terms.clients.toLowerCase()}`}
           icon={DollarSign}
-          trend={{ value: 12, isPositive: true }}
         />
         <StatsCard
           title={`${terms.clients} Ativos`}
           value={activeClients}
           subtitle={`${clients.length} total`}
           icon={Users}
-          trend={{ value: 5, isPositive: true }}
         />
         <StatsCard
           title={`${terms.meetings} Agendadas`}
@@ -127,7 +141,6 @@ export default function Dashboard() {
           value={`R$ ${closedValue.toLocaleString('pt-BR')}`}
           subtitle={`${closedDeals.length} ${terms.deals.toLowerCase()} fechados`}
           icon={DollarSign}
-          trend={closedDeals.length > 0 ? { value: closedDeals.length, isPositive: true } : undefined}
         />
       </div>
 

@@ -117,7 +117,8 @@ export default function Agenda() {
   const isDayBlocked = (date: Date) => {
     // Check blocked days of week
     const dayOfWeek = parseInt(format(date, 'i')) % 7; // 0=Sunday, 6=Saturday
-    if (!settings.availableDays.includes(dayOfWeek)) return true;
+
+    // Check if day is enabled in schedule
     if (settings.daySchedules[dayOfWeek] && !settings.daySchedules[dayOfWeek].enabled) return true;
 
     // Check specific blocked dates

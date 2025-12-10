@@ -24,6 +24,11 @@ export function RecentMeetings({
     .filter((m) => {
       if (!m.date) return false;
       const dt = parseISO(m.date);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (isBefore(dt, today)) return false;
+
       if (start && isBefore(dt, start)) return false;
       if (end && isAfter(dt, end)) return false;
       return true;
