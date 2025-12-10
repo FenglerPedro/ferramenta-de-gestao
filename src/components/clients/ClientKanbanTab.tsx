@@ -1,5 +1,4 @@
 import { useState, DragEvent } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { ProjectTask } from '@/types';
-import { Plus, ArrowLeft, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { Plus, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
     DropdownMenu,
@@ -21,13 +20,14 @@ import {
 
 import { useTerminology } from '@/hooks/useTerminology';
 
-export default function ClientProject() {
-    const { clientId } = useParams();
-    const navigate = useNavigate();
-    const { clients, projectTasks, projectStages, addProjectTask, updateProjectTask, deleteProjectTask, moveProjectTask } = useBusiness();
+interface ClientKanbanTabProps {
+    clientId: string;
+}
+
+export function ClientKanbanTab({ clientId }: ClientKanbanTabProps) {
+    const { projectTasks, projectStages, addProjectTask, updateProjectTask, deleteProjectTask, moveProjectTask } = useBusiness();
     const terms = useTerminology();
 
-    const client = clients.find(c => c.id === clientId);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<string | null>(null);
     const [draggedTask, setDraggedTask] = useState<string | null>(null);
@@ -38,19 +38,6 @@ export default function ClientProject() {
         priority: 'medium' as 'low' | 'medium' | 'high',
         dueDate: '',
     });
-
-    if (!client) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                    <h2 className="text-2xl font-bold">{terms.client} não encontrado</h2>
-                    <Button onClick={() => navigate('/clientes')} className="mt-4">
-                        Voltar para {terms.clients}
-                    </Button>
-                </div>
-            </div>
-        );
-    }
 
     const clientTasks = projectTasks.filter(t => t.clientId === clientId);
     const sortedStages = [...projectStages].sort((a, b) => a.order - b.order);
@@ -78,7 +65,7 @@ export default function ClientProject() {
             updateProjectTask(editingTask, formData);
             toast.success(`${terms.task} atualizada!`);
         } else {
-            addProjectTask({ ...formData, clientId: clientId! });
+            addProjectTask({ ...formData, clientId });
             toast.success(`${terms.task} criada!`);
         }
 
@@ -136,94 +123,84 @@ export default function ClientProject() {
     };
 
     return (
-        <div className="h-full flex flex-col overflow-hidden">
-            {/* Fixed Header - não rola horizontalmente */}
-            <div className="shrink-0 space-y-4 pb-4">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => navigate('/clientes')}>
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <div className="flex-1">
-                        <h1 className="text-2xl font-bold text-foreground">{terms.project}: {client.name}</h1>
-                        <p className="text-muted-foreground">Gerencie as atividades do {terms.project.toLowerCase()}</p>
-                    </div>
-                    <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-                        <DialogTrigger asChild>
-                            <Button className="gap-2">
-                                <Plus className="h-4 w-4" />
-                                Nova {terms.task}
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>{editingTask ? `Editar ${terms.task}` : `Nova ${terms.task}`}</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4 pt-4">
-                                <div className="space-y-2">
-                                    <Label>Título *</Label>
-                                    <Input
-                                        placeholder="Ex: Criar layout inicial"
-                                        value={formData.title}
-                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Descrição</Label>
-                                    <Textarea
-                                        placeholder={`Detalhes da ${terms.task.toLowerCase()}...`}
-                                        rows={3}
-                                        value={formData.description}
-                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Estágio</Label>
-                                        <Select value={formData.stageId} onValueChange={(value) => setFormData({ ...formData, stageId: value })}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {sortedStages.map((stage) => (
-                                                    <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Prioridade</Label>
-                                        <Select value={formData.priority} onValueChange={(value: 'low' | 'medium' | 'high') => setFormData({ ...formData, priority: value })}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="low">Baixa</SelectItem>
-                                                <SelectItem value="medium">Média</SelectItem>
-                                                <SelectItem value="high">Alta</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Data de Entrega</Label>
-                                    <Input
-                                        type="date"
-                                        value={formData.dueDate}
-                                        onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                                    />
-                                </div>
-                                <Button onClick={handleSubmit} className="w-full">
-                                    {editingTask ? 'Salvar Alterações' : `Criar ${terms.task}`}
-                                </Button>
+        <div className="flex flex-col h-[calc(100vh-250px)]">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium">{terms.projects} e Tarefas</h3>
+                <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+                    <DialogTrigger asChild>
+                        <Button className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            Nova {terms.task}
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>{editingTask ? `Editar ${terms.task}` : `Nova ${terms.task}`}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 pt-4">
+                            <div className="space-y-2">
+                                <Label>Título *</Label>
+                                <Input
+                                    placeholder="Ex: Criar layout inicial"
+                                    value={formData.title}
+                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                />
                             </div>
-                        </DialogContent>
-                    </Dialog>
-                </div>
+                            <div className="space-y-2">
+                                <Label>Descrição</Label>
+                                <Textarea
+                                    placeholder={`Detalhes da ${terms.task.toLowerCase()}...`}
+                                    rows={3}
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Estágio</Label>
+                                    <Select value={formData.stageId} onValueChange={(value) => setFormData({ ...formData, stageId: value })}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {sortedStages.map((stage) => (
+                                                <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Prioridade</Label>
+                                    <Select value={formData.priority} onValueChange={(value: 'low' | 'medium' | 'high') => setFormData({ ...formData, priority: value })}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="low">Baixa</SelectItem>
+                                            <SelectItem value="medium">Média</SelectItem>
+                                            <SelectItem value="high">Alta</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Data de Entrega</Label>
+                                <Input
+                                    type="date"
+                                    value={formData.dueDate}
+                                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                                />
+                            </div>
+                            <Button onClick={handleSubmit} className="w-full">
+                                {editingTask ? 'Salvar Alterações' : `Criar ${terms.task}`}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
 
-            {/* Kanban Board */}
-            <div className="flex-1 overflow-x-auto overflow-y-hidden">
-                <div className="flex gap-4 min-w-max h-full pb-4">
+            <div className="flex-1 overflow-x-auto pb-4">
+                <div className="flex gap-4 min-w-max h-full">
                     {sortedStages.map((stage) => {
                         const stageTasks = getTasksForStage(stage.id);
 
@@ -242,7 +219,7 @@ export default function ClientProject() {
                                     </div>
                                 </div>
 
-                                <div className="flex-1 p-2 space-y-2 overflow-y-auto">
+                                <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-350px)]">
                                     {stageTasks.map((task) => (
                                         <Card
                                             key={task.id}

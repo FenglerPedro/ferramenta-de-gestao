@@ -11,6 +11,27 @@ export interface Client {
   monthlyValue?: number;
   status: 'active' | 'inactive' | 'pending';
   sourceDealId?: string;
+  photo?: string;
+}
+
+export interface Transaction {
+  id: string;
+  clientId: string;
+  date: string; // ISO date string
+  amount: number;
+  description: string;
+  status: 'paid' | 'pending' | 'cancelled';
+  paymentMethod?: 'credit_card' | 'pix' | 'boleto' | 'transfer' | 'cash';
+}
+
+export interface ClientActivity {
+  id: string;
+  clientId: string;
+  type: 'call' | 'email' | 'meeting' | 'note' | 'system';
+  title: string;
+  description?: string;
+  date: string; // ISO date string
+  userId?: string;
 }
 
 export interface Service {

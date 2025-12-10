@@ -342,10 +342,10 @@ export default function Clientes() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => navigate(`/clientes/${client.id}/projeto`)}
-                        title="Ver Projeto"
+                        onClick={() => navigate(`/clientes/${client.id}`)}
+                        title="Ver Detalhes"
                       >
-                        <KanbanIcon className="h-4 w-4" />
+                        <Search className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(client)}>
                         <Pencil className="h-4 w-4" />

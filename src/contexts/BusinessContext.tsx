@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Client, Service, Meeting, BusinessSettings, Deal, PipelineStage, defaultPipelineStages, ProjectTask, ProjectStage, defaultProjectStages } from '@/types';
+import { Client, Service, Meeting, BusinessSettings, Deal, PipelineStage, defaultPipelineStages, ProjectTask, ProjectStage, defaultProjectStages, Transaction, ClientActivity } from '@/types';
 import env from '@/config/env';
 
 interface BusinessContextType {
@@ -10,6 +10,8 @@ interface BusinessContextType {
   pipelineStages: PipelineStage[];
   projectTasks: ProjectTask[];
   projectStages: ProjectStage[];
+  transactions: Transaction[];
+  activities: ClientActivity[];
   settings: BusinessSettings;
   addClient: (client: Omit<Client, 'id'>) => void;
   updateClient: (id: string, client: Partial<Client>) => void;
@@ -36,6 +38,12 @@ interface BusinessContextType {
   updateProjectStage: (id: string, stage: Partial<ProjectStage>) => void;
   deleteProjectStage: (id: string) => void;
   reorderProjectStages: (stages: ProjectStage[]) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  updateTransaction: (id: string, transaction: Partial<Transaction>) => void;
+  deleteTransaction: (id: string) => void;
+  addActivity: (activity: Omit<ClientActivity, 'id'>) => void;
+  updateActivity: (id: string, activity: Partial<ClientActivity>) => void;
+  deleteActivity: (id: string) => void;
   updateSettings: (settings: Partial<BusinessSettings>) => void;
 }
 
@@ -78,6 +86,8 @@ interface StoredData {
   pipelineStages: PipelineStage[];
   projectTasks: ProjectTask[];
   projectStages: ProjectStage[];
+  transactions: Transaction[];
+  activities: ClientActivity[];
   settings: BusinessSettings;
 }
 
@@ -117,12 +127,14 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const [projectStages, setProjectStages] = useState<ProjectStage[]>(
     storedData?.projectStages ?? defaultProjectStages
   );
+  const [transactions, setTransactions] = useState<Transaction[]>(storedData?.transactions ?? []);
+  const [activities, setActivities] = useState<ClientActivity[]>(storedData?.activities ?? []);
   const [settings, setSettings] = useState<BusinessSettings>(storedData?.settings ?? defaultSettings);
 
   // Salvar no localStorage sempre que os dados mudarem
   useEffect(() => {
-    saveToStorage({ clients, services, meetings, deals, pipelineStages, projectTasks, projectStages, settings });
-  }, [clients, services, meetings, deals, pipelineStages, projectTasks, projectStages, settings]);
+    saveToStorage({ clients, services, meetings, deals, pipelineStages, projectTasks, projectStages, transactions, activities, settings });
+  }, [clients, services, meetings, deals, pipelineStages, projectTasks, projectStages, transactions, activities, settings]);
 
   // Sincronizar dados quando há mudanças no localStorage (ex: em outras abas)
   useEffect(() => {
@@ -136,6 +148,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         setPipelineStages(newData.pipelineStages);
         setProjectTasks(newData.projectTasks);
         setProjectStages(newData.projectStages);
+        setTransactions(newData.transactions);
+        setActivities(newData.activities);
         setSettings(newData.settings);
       }
     };
@@ -208,16 +222,20 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     const newStage = pipelineStages.find(s => s.id === newStageId);
 
     // Verificar se o estágio é "Fechado" ou similar (ganho/won)
-    const isClosedStage = newStage && (
+    // Se o estágio não for encontrado (ex: deletado), mas o ID for 'closed' ou 'won', consideramos fechado.
+    const isClosedStage = (newStage && (
       newStage.name.toLowerCase().includes('fechado') ||
       newStage.name.toLowerCase().includes('ganho') ||
       newStage.id === 'closed' ||
       newStage.id === 'won'
-    );
+    )) || newStageId === 'closed' || newStageId === 'won';
 
     // Se moveu para "Fechado" e ainda não existe cliente com este email
     if (isClosedStage && deal) {
-      const clientExists = clients.some(c => c.sourceDealId === deal.id || (c.email === deal.clientEmail && deal.clientEmail));
+      const clientExists = clients.some(c =>
+        (c.sourceDealId === deal.id) ||
+        (c.email === deal.clientEmail && deal.clientEmail && deal.clientEmail.trim() !== '')
+      );
 
       if (!clientExists) {
         // Criar novo cliente automaticamente
@@ -230,21 +248,26 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
           totalValue: deal.value,
           purchaseDate: now,
           isRecurring: false,
+          monthlyValue: 0,
           status: 'active',
           sourceDealId: dealId,
         };
 
         addClient(newClient);
+        // Force update deals state first to ensure UI responsiveness, client addition happens via state setter
+      } else if (clientExists) {
+        // Se já existe, talvez atualizar o valor total?
+        // Por enquanto, mantemos a lógica de apenas criar se não existir.
       }
     } else if (!isClosedStage && deal) {
-      // Se saiu de "Fechado", remover cliente associado
+      // Se saiu de "Fechado", remover cliente associado APENAS se foi criado automaticamente por este deal
       const clientToRemove = clients.find(c => c.sourceDealId === deal.id);
       if (clientToRemove) {
         deleteClient(clientToRemove.id);
       }
     }
 
-    setDeals(deals.map(d => d.id === dealId ? { ...d, stageId: newStageId, updatedAt: now } : d));
+    setDeals(prevDeals => prevDeals.map(d => d.id === dealId ? { ...d, stageId: newStageId, updatedAt: now } : d));
   };
 
   // Pipeline Stage functions
@@ -314,6 +337,31 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setProjectStages(newStages.map((s, index) => ({ ...s, order: index })));
   };
 
+  const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
+    setTransactions([...transactions, { ...transaction, id: generateId() }]);
+  };
+
+  const updateTransaction = (id: string, transaction: Partial<Transaction>) => {
+    setTransactions(transactions.map(t => t.id === id ? { ...t, ...transaction } : t));
+  };
+
+  const deleteTransaction = (id: string) => {
+    setTransactions(transactions.filter(t => t.id !== id));
+  };
+
+  // Activity functions
+  const addActivity = (activity: Omit<ClientActivity, 'id'>) => {
+    setActivities([...activities, { ...activity, id: generateId() }]);
+  };
+
+  const updateActivity = (id: string, activity: Partial<ClientActivity>) => {
+    setActivities(activities.map(a => a.id === id ? { ...a, ...activity } : a));
+  };
+
+  const deleteActivity = (id: string) => {
+    setActivities(activities.filter(a => a.id !== id));
+  };
+
   const updateSettings = (newSettings: Partial<BusinessSettings>) => {
     setSettings({ ...settings, ...newSettings });
   };
@@ -354,6 +402,14 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         updateProjectStage,
         deleteProjectStage,
         reorderProjectStages,
+        transactions,
+        activities,
+        addTransaction,
+        updateTransaction,
+        deleteTransaction,
+        addActivity,
+        updateActivity,
+        deleteActivity,
         updateSettings,
       }}
     >

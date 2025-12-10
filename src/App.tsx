@@ -13,7 +13,7 @@ import AuthGuard from "@/components/auth/AuthGuard";
 import Index from "./pages/Index";
 import Agenda from "./pages/Agenda";
 import Clientes from "./pages/Clientes";
-import ClientProject from "./pages/ClientProject";
+import ClientDetails from "./pages/ClientDetails";
 import Servicos from "./pages/Servicos";
 import Configuracoes from "./pages/Configuracoes";
 import CRM from "./pages/CRM";
@@ -63,9 +63,9 @@ const App = () => (
                     <AppLayout><Clientes /></AppLayout>
                   </AuthGuard>
                 } />
-                <Route path="/clientes/:clientId/projeto" element={
+                <Route path="/clientes/:clientId" element={
                   <AuthGuard>
-                    <AppLayout><ClientProject /></AppLayout>
+                    <AppLayout><ClientDetails /></AppLayout>
                   </AuthGuard>
                 } />
                 <Route path="/servicos" element={

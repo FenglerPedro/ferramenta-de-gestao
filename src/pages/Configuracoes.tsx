@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { ThemeCustomizer } from '@/components/settings/ThemeCustomizer';
 import { PipelineSettings } from '@/components/settings/PipelineSettings';
 import { BlockedDate, BlockedTimeSlot, DaySchedule } from '@/types';
+import { eachDayOfInterval, format, parseISO } from 'date-fns';
 
 const weekDays = [
   { id: 0, label: 'Domingo' },
@@ -137,21 +138,47 @@ export default function Configuracoes() {
     });
   };
 
-  const [newBlockedDate, setNewBlockedDate] = useState({ date: '', reason: '' });
+  const [newBlockedDate, setNewBlockedDate] = useState({ startDate: '', endDate: '', reason: '' });
   const [newBlockedTime, setNewBlockedTime] = useState({ startTime: '', endTime: '', reason: '' });
 
   const addBlockedDate = () => {
-    if (!newBlockedDate.date) return;
-    const blockedDate: BlockedDate = {
-      id: Math.random().toString(36).substr(2, 9),
-      date: newBlockedDate.date,
-      reason: newBlockedDate.reason,
-    };
-    setFormData({
-      ...formData,
-      blockedDates: [...(formData.blockedDates || []), blockedDate],
-    });
-    setNewBlockedDate({ date: '', reason: '' });
+    if (!newBlockedDate.startDate) return;
+
+    try {
+      const start = parseISO(newBlockedDate.startDate);
+      const end = newBlockedDate.endDate ? parseISO(newBlockedDate.endDate) : start;
+
+      if (end < start) {
+        toast.error('A data final deve ser igual ou posterior à data inicial');
+        return;
+      }
+
+      const dates = eachDayOfInterval({ start, end });
+      const newEntries: BlockedDate[] = dates.map(date => ({
+        id: Math.random().toString(36).substr(2, 9),
+        date: format(date, 'yyyy-MM-dd'),
+        reason: newBlockedDate.reason,
+      }));
+
+      // Filter out duplicates if any (optional, but good practice)
+      const existingDates = new Set((formData.blockedDates || []).map(d => d.date));
+      const uniqueNewEntries = newEntries.filter(e => !existingDates.has(e.date));
+
+      if (uniqueNewEntries.length < newEntries.length) {
+        toast.warning(`${newEntries.length - uniqueNewEntries.length} datas já estavam bloqueadas e foram ignoradas.`);
+      }
+
+      if (uniqueNewEntries.length === 0) return;
+
+      setFormData({
+        ...formData,
+        blockedDates: [...(formData.blockedDates || []), ...uniqueNewEntries],
+      });
+      setNewBlockedDate({ startDate: '', endDate: '', reason: '' });
+      toast.success(`${uniqueNewEntries.length} data(s) bloqueada(s)!`);
+    } catch (error) {
+      toast.error('Erro ao processar datas');
+    }
   };
 
   const removeBlockedDate = (id: string) => {
@@ -448,18 +475,30 @@ export default function Configuracoes() {
 
             <div className="space-y-3">
               <Label>Datas Bloqueadas (feriados, folgas)</Label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap items-center">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium whitespace-nowrap">De:</span>
+                  <Input
+                    type="date"
+                    value={newBlockedDate.startDate}
+                    onChange={(e) => setNewBlockedDate({ ...newBlockedDate, startDate: e.target.value })}
+                    className="w-40"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium whitespace-nowrap">Até:</span>
+                  <Input
+                    type="date"
+                    value={newBlockedDate.endDate}
+                    onChange={(e) => setNewBlockedDate({ ...newBlockedDate, endDate: e.target.value })}
+                    className="w-40"
+                  />
+                </div>
                 <Input
-                  type="date"
-                  value={newBlockedDate.date}
-                  onChange={(e) => setNewBlockedDate({ ...newBlockedDate, date: e.target.value })}
-                  className="w-40"
-                />
-                <Input
-                  placeholder="Motivo (ex: Feriado)"
+                  placeholder="Motivo (ex: Férias)"
                   value={newBlockedDate.reason}
                   onChange={(e) => setNewBlockedDate({ ...newBlockedDate, reason: e.target.value })}
-                  className="flex-1"
+                  className="flex-1 min-w-[150px]"
                 />
                 <Button onClick={addBlockedDate} size="icon" variant="outline">
                   <Plus className="h-4 w-4" />
