@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format, parseISO, addMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Pencil, Trash2, X, Clock, Mail, User, Calendar } from 'lucide-react';
+import { Pencil, Trash2, X, Clock, Mail, User, Calendar, AlignLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AppointmentCardProps {
@@ -204,6 +204,12 @@ export function AppointmentCard({ meeting, onUpdate, onDelete, children }: Appoi
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span>{format(parseISO(meeting.date), "dd/MM/yyyy", { locale: ptBR })}</span>
                   </div>
+                  {meeting.notes && (
+                    <div className="flex items-start gap-3 text-sm">
+                      <AlignLeft className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      <span className="text-muted-foreground italic">"{meeting.notes}"</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

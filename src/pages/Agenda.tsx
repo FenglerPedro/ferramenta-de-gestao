@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useBusiness } from '@/contexts/BusinessContext';
 import { format, parseISO, isSameDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isToday, isSameMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppointmentCard } from '@/components/agenda/AppointmentCard';
 
@@ -39,6 +39,7 @@ export default function Agenda() {
     const dayMeetings = meetings.filter((m) => isSameDay(parseISO(m.date), date));
     const occupied = new Set<string>();
 
+    // 1. Mark slots from scheduled meetings
     dayMeetings.forEach((meeting) => {
       const [startHour, startMin] = meeting.time.split(':').map(Number);
       const startMinutes = startHour * 60 + startMin;
@@ -55,6 +56,29 @@ export default function Agenda() {
         }
       });
     });
+
+    // 2. Mark slots from blocked time periods (User Settings)
+    if (settings.blockedTimeSlots && settings.blockedTimeSlots.length > 0) {
+      settings.blockedTimeSlots.forEach((blocked) => {
+        const [startHour, startMin] = blocked.startTime.split(':').map(Number);
+        const endHourPart = blocked.endTime.split(':').map(Number);
+
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHourPart[0] * 60 + endHourPart[1];
+
+        timeSlots.forEach((slot) => {
+          const [slotHour, slotMin] = slot.split(':').map(Number);
+          const slotStart = slotHour * 60 + slotMin;
+          const slotEnd = slotStart + 30;
+
+          // If the slot simply OVERLAPS with the blocked period
+          // Standard overlap logic: max(start1, start2) < min(end1, end2)
+          if (Math.max(slotStart, startMinutes) < Math.min(slotEnd, endMinutes)) {
+            occupied.add(slot);
+          }
+        });
+      });
+    }
 
     return occupied;
   };
@@ -161,6 +185,19 @@ export default function Agenda() {
             {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
           </h1>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mr-2 gap-2"
+          onClick={() => {
+            const url = `${window.location.origin}/agendar`;
+            navigator.clipboard.writeText(url);
+            toast.success('Link de agendamento copiado para a área de transferência!');
+          }}
+        >
+          <Share2 className="h-4 w-4" />
+          Link de Agendamento
+        </Button>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-2">
