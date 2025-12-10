@@ -1,0 +1,1 @@
+export { useTerminology } from './useTerminology';
