@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { useBusiness } from '@/contexts/BusinessContext';
@@ -9,7 +11,12 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const { undo, redo, canUndo, canRedo } = useBusiness();
+  const { undo, redo, canUndo, canRedo, resetHistory } = useBusiness();
+  const location = useLocation();
+
+  useEffect(() => {
+    resetHistory();
+  }, [location.pathname, resetHistory]);
 
   return (
     <SidebarProvider>

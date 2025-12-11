@@ -51,6 +51,7 @@ interface BusinessContextType {
   updateSettings: (settings: Partial<BusinessSettings>) => void;
   undo: () => void;
   redo: () => void;
+  resetHistory: () => void;
   canUndo: boolean;
   canRedo: boolean;
 }
@@ -203,6 +204,11 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setActivities(next.activities);
     setPurchasedServices(next.purchasedServices);
     setSettings(next.settings);
+  };
+
+  const resetHistory = () => {
+    setHistory([]);
+    setFuture([]);
   };
 
   // Salvar no localStorage sempre que os dados mudarem
@@ -561,6 +567,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         updateSettings,
         undo,
         redo,
+        resetHistory,
         canUndo: history.length > 0,
         canRedo: future.length > 0,
       }}
