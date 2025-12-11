@@ -14,7 +14,7 @@ interface BusinessContextType {
   activities: ClientActivity[];
   purchasedServices: PurchasedService[];
   settings: BusinessSettings;
-  addClient: (client: Omit<Client, 'id'>) => void;
+  addClient: (client: Omit<Client, 'id'> & { id?: string }) => void;
   updateClient: (id: string, client: Partial<Client>) => void;
   deleteClient: (id: string) => void;
   addService: (service: Omit<Service, 'id'>) => void;
@@ -206,10 +206,10 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setSettings(next.settings);
   };
 
-  const resetHistory = () => {
+  const resetHistory = React.useCallback(() => {
     setHistory([]);
     setFuture([]);
-  };
+  }, []);
 
   // Salvar no localStorage sempre que os dados mudarem
   useEffect(() => {
@@ -243,9 +243,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
   // Client functions
-  const addClient = (client: Omit<Client, 'id'>) => {
+  const addClient = (client: Omit<Client, 'id'> & { id?: string }) => {
     saveCheckpoint();
-    setClients([...clients, { ...client, id: generateId() }]);
+    setClients([...clients, { ...client, id: client.id || generateId() }]);
   };
 
   const updateClient = (id: string, client: Partial<Client>) => {

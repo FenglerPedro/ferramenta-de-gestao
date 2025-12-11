@@ -288,6 +288,10 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                 {clientServices.map((service) => {
                     const paidAmount = getPaidAmount(service);
                     const isPaid = paidAmount >= service.value && service.type === 'one-time';
+                    
+                    const lastPaymentDate = transactions
+                        .filter(t => t.serviceId === service.id && t.status === 'paid')
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.date;
 
                     return (
                         <AccordionItem key={service.id} value={service.id} className="border rounded-lg bg-card px-4">
@@ -328,6 +332,11 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                                             <p className="text-xs text-muted-foreground">
                                                 Pago: R$ {paidAmount.toLocaleString('pt-BR')}
                                             </p>
+                                            {isPaid && lastPaymentDate && (
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    em {format(parseISO(lastPaymentDate), 'dd/MM/yyyy', { locale: ptBR })}
+                                                </p>
+                                            )}
                                         </div>
                                         <Button variant="ghost" size="icon" onClick={(e) => handleDeleteService(service.id, e)}>
                                             <Trash2 className="h-4 w-4 text-destructive" />

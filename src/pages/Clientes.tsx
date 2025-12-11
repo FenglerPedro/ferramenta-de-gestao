@@ -43,12 +43,13 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 export default function Clientes() {
-  const { clients, services, addClient, updateClient, deleteClient, purchasedServices } = useBusiness();
+  const { clients, services, addClient, updateClient, deleteClient, purchasedServices, addPurchasedService } = useBusiness();
   const terms = useTerminology();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<string | null>(null);
+  const [customService, setCustomService] = useState('');
   const [formData, setFormData] = useState<{
     name: string;
     email: string;
@@ -90,24 +91,69 @@ export default function Clientes() {
       status: 'active',
     });
     setEditingClient(null);
+    setCustomService('');
+  };
+
+  const handleAddCustomService = () => {
+    if (customService.trim()) {
+      const newService = customService.trim();
+      if (!formData.services.includes(newService)) {
+        setFormData(prev => ({
+          ...prev,
+          services: [...prev.services, newService]
+        }));
+      }
+      setCustomService('');
+    }
   };
 
   const handleSubmit = () => {
-    if (!formData.name || formData.services.length === 0) {
+    // Add custom service if user forgot to click add button but typed something
+    let finalServices = [...formData.services];
+    if (customService.trim() && !finalServices.includes(customService.trim())) {
+      finalServices.push(customService.trim());
+    }
+
+    if (!formData.name || finalServices.length === 0) {
       toast.error(`Preencha o nome e selecione pelo menos um ${terms.service.toLowerCase()}`);
       return;
     }
 
     const clientData = {
       ...formData,
-      service: formData.services[0], // Compatibilidade
+      services: finalServices,
+      service: finalServices[0], // Compatibilidade
     };
 
     if (editingClient) {
       updateClient(editingClient, clientData);
       toast.success(`${terms.client} atualizado com sucesso!`);
     } else {
-      addClient(clientData);
+      // 1. Create Client
+      const clientId = Math.random().toString(36).substr(2, 9);
+      const clientWithId = {
+        ...clientData,
+        id: clientId
+      };
+      
+      addClient(clientWithId);
+
+      // 2. Create Purchased Services
+      const valuePerService = finalServices.length > 0 ? clientData.totalValue / finalServices.length : 0;
+      
+      finalServices.forEach(serviceName => {
+        addPurchasedService({
+          clientId: clientId,
+          serviceName: serviceName,
+          type: clientData.isRecurring ? 'recurring' : 'one-time',
+          value: valuePerService, // Distribute value or assign to first? User didn't specify. Even split seems fair.
+          status: 'active',
+          startDate: clientData.purchaseDate,
+          // For recurring, we might want to add recurrence interval default
+          recurrenceInterval: clientData.isRecurring ? 'monthly' : undefined
+        });
+      });
+
       toast.success(`${terms.client} adicionado com sucesso!`);
     }
 
@@ -222,8 +268,39 @@ export default function Clientes() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label>Tipo de Contrato</Label>
+                  <Select
+                    value={formData.isRecurring ? 'recurring' : 'one-time'}
+                    onValueChange={(value) => setFormData({ ...formData, isRecurring: value === 'recurring' })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="one-time">Pontual (À vista/Parcelado)</SelectItem>
+                      <SelectItem value="recurring">Recorrente (Mensal)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label>{terms.services} *</Label>
-                  <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg">
+                  <div className="flex gap-2 mb-2">
+                    <Input 
+                      placeholder="Adicionar outro serviço..." 
+                      value={customService}
+                      onChange={(e) => setCustomService(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomService();
+                        }
+                      }}
+                    />
+                    <Button type="button" variant="outline" onClick={handleAddCustomService}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg max-h-40 overflow-y-auto">
                     {services.map((service) => (
                       <div key={service.id} className="flex items-center space-x-2">
                         <input
@@ -235,18 +312,47 @@ export default function Clientes() {
                         />
                         <label
                           htmlFor={`service-${service.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                         >
                           {service.name}
                         </label>
                       </div>
                     ))}
+                    {/* Display custom services that are not in the predefined list */}
+                    {formData.services
+                      .filter(s => !services.find(svc => svc.name === s))
+                      .map((serviceName, idx) => (
+                        <div key={`custom-${idx}`} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`custom-service-${idx}`}
+                            checked={true}
+                            onChange={() => toggleService(serviceName)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <label
+                            htmlFor={`custom-service-${idx}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {serviceName}
+                          </label>
+                        </div>
+                      ))}
                   </div>
                   {formData.services.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {formData.services.map((serviceName) => (
-                        <Badge key={serviceName} variant="secondary">
+                        <Badge key={serviceName} variant="secondary" className="gap-1">
                           {serviceName}
+                          <span 
+                            className="cursor-pointer ml-1 hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleService(serviceName);
+                            }}
+                          >
+                            ×
+                          </span>
                         </Badge>
                       ))}
                     </div>
@@ -278,15 +384,6 @@ export default function Clientes() {
                         <SelectItem value="pending">Pendente</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                </div>
-                <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Serviço Recorrente</Label>
-                      <p className="text-xs text-muted-foreground">Esta opção foi movida para os detalhes do serviço.</p>
-                    </div>
-                    {/* Switch removed as requested */}
                   </div>
                 </div>
                 <Button onClick={handleSubmit} className="w-full">
