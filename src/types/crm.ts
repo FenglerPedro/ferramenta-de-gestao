@@ -15,6 +15,7 @@ export interface Deal {
     clientPhone: string;
     title: string;
     value: number;
+    type?: 'recurring' | 'one-time';
     stageId: string;
     createdAt: string;
     updatedAt: string;

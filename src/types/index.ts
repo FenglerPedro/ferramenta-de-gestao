@@ -1,3 +1,28 @@
+export interface Installment {
+  id: string;
+  serviceId: string;
+  dueDate: string; // ISO date
+  value: number;
+  status: 'pending' | 'paid' | 'overdue';
+  transactionId?: string;
+  number: number; // 1, 2, 3...
+}
+
+export interface PurchasedService {
+  id: string;
+  clientId: string;
+  serviceName: string;
+  type: 'recurring' | 'one-time';
+  value: number; // Total value for one-time, or Monthly value for recurring
+  status: 'active' | 'completed' | 'cancelled';
+  startDate: string;
+  // For recurring
+  recurrenceInterval?: 'monthly' | 'yearly';
+  installments?: Installment[];
+  // For one-time
+  transactionId?: string; // One-time payment transaction
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -22,6 +47,8 @@ export interface Transaction {
   description: string;
   status: 'paid' | 'pending' | 'cancelled';
   paymentMethod?: 'credit_card' | 'pix' | 'boleto' | 'transfer' | 'cash';
+  serviceId?: string; // Link to PurchasedService
+  installmentId?: string; // Link to Installment
 }
 
 export interface ClientActivity {

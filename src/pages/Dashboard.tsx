@@ -31,17 +31,16 @@ export default function Dashboard() {
     return true;
   });
 
-  // Filter clients for revenue calculation (using purchaseDate)
-  const filteredClients = clients.filter((c) => {
-    if (!c.purchaseDate) return false;
-    const dt = parseISO(c.purchaseDate);
-    if (startDate && isBefore(dt, parseISO(startDate))) return false;
-    if (endDate && isAfter(dt, parseISO(endDate))) return false;
-    return true;
-  });
-
-  // Revenue from Clients
-  const totalRevenue = filteredClients.reduce((acc, client) => acc + client.totalValue, 0);
+  // Revenue from Paid Transactions
+  const totalRevenue = transactions
+    .filter(t => {
+      if (t.status !== 'paid') return false;
+      const dt = parseISO(t.date);
+      if (startDate && isBefore(dt, parseISO(startDate))) return false;
+      if (endDate && isAfter(dt, parseISO(endDate))) return false;
+      return true;
+    })
+    .reduce((acc, t) => acc + t.amount, 0);
 
   const activeClients = clients.filter((c) => c.status === 'active').length;
 

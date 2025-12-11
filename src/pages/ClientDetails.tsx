@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Mail, Phone, Calendar, ArrowUpRight, Camera } from 'lucide-react';
 import { useRef } from 'react';
 import { ClientFinancialCard } from '@/components/clients/ClientFinancialCard';
-import { ClientHistoryTab } from '@/components/clients/ClientHistoryTab';
+import { ClientServicesTab } from '@/components/clients/ClientServicesTab';
 import { ClientTimelineTab } from '@/components/clients/ClientTimelineTab';
 import { ClientKanbanTab } from '@/components/clients/ClientKanbanTab';
 import { format, parseISO } from 'date-fns';
@@ -120,7 +120,7 @@ export default function ClientDetails() {
                 <TabsList>
                     <TabsTrigger value="projects">Projetos & Tarefas</TabsTrigger>
                     <TabsTrigger value="timeline">Timeline</TabsTrigger>
-                    <TabsTrigger value="history">Histórico de Compras</TabsTrigger>
+                    <TabsTrigger value="history">Serviços Contratados</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="projects" className="pt-4">
@@ -132,7 +132,7 @@ export default function ClientDetails() {
                 </TabsContent>
 
                 <TabsContent value="history" className="pt-4">
-                    <ClientHistoryTab clientId={client.id} transactions={clientTransactions} />
+                    <ClientServicesTab clientId={client.id} />
                 </TabsContent>
             </Tabs>
         </div>

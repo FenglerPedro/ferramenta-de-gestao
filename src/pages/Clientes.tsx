@@ -287,76 +287,92 @@ export default function Clientes() {
                 <TableHead>{terms.client}</TableHead>
                 <TableHead>{terms.service}</TableHead>
                 <TableHead>Valor Total</TableHead>
+                <TableHead>Valor Pago</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredClients.map((client) => (
-                <TableRow key={client.id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{client.name}</p>
-                      <p className="text-sm text-muted-foreground">{client.email || 'Sem email'}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      {client.services && client.services.length > 1 ? (
-                        <>
-                          <span className="text-sm">{client.services[0]}</span>
-                          <Badge variant="outline" className="w-fit text-xs">
-                            +{client.services.length - 1} mais
-                          </Badge>
-                        </>
-                      ) : (
-                        <span className="text-sm">{client.service}</span>
-                      )}
-                      {client.isRecurring && (
-                        <span className="text-xs text-muted-foreground">
-                          Mensalidade: R$ {(client.monthlyValue || 0).toLocaleString('pt-BR')}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>R$ {client.totalValue.toLocaleString('pt-BR')}</TableCell>
-                  <TableCell>
-                    {format(parseISO(client.purchaseDate), 'dd/MM/yyyy', { locale: ptBR })}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        client.status === 'active'
-                          ? 'default'
-                          : client.status === 'inactive'
-                            ? 'secondary'
-                            : 'outline'
-                      }
-                    >
-                      {client.status === 'active' ? 'Ativo' : client.status === 'inactive' ? 'Inativo' : 'Pendente'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate(`/clientes/${client.id}`)}
-                        title="Ver Detalhes"
+              {filteredClients.map((client) => {
+                const clientServices = useBusiness().purchasedServices.filter(s => s.clientId === client.id);
+                const clientDealsValue = clientServices.reduce((acc, s) => acc + s.value, 0);
+                // Fallback to client.totalValue if no services found (backward compatibility)
+                const displayTotalValue = clientServices.length > 0 ? clientDealsValue : client.totalValue;
+
+                const clientTransactions = useBusiness().transactions.filter(t => t.clientId === client.id && t.status === 'paid');
+                const paidValue = clientTransactions.reduce((acc, t) => acc + t.amount, 0);
+
+                return (
+                  <TableRow key={client.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{client.name}</p>
+                        <p className="text-sm text-muted-foreground">{client.email || 'Sem email'}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        {client.services && client.services.length > 1 ? (
+                          <>
+                            <span className="text-sm">{client.services[0]}</span>
+                            <Badge variant="outline" className="w-fit text-xs">
+                              +{client.services.length - 1} mais
+                            </Badge>
+                          </>
+                        ) : (
+                          <span className="text-sm">{client.service}</span>
+                        )}
+                        {client.isRecurring && (
+                          <span className="text-xs text-muted-foreground">
+                            Mensalidade: R$ {(client.monthlyValue || 0).toLocaleString('pt-BR')}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>R$ {displayTotalValue.toLocaleString('pt-BR')}</TableCell>
+                    <TableCell>
+                      <span className="text-green-600 font-medium">
+                        R$ {paidValue.toLocaleString('pt-BR')}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {format(parseISO(client.purchaseDate), 'dd/MM/yyyy', { locale: ptBR })}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          client.status === 'active'
+                            ? 'default'
+                            : client.status === 'inactive'
+                              ? 'secondary'
+                              : 'outline'
+                        }
                       >
-                        <Search className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(client)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(client.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        {client.status === 'active' ? 'Ativo' : client.status === 'inactive' ? 'Inativo' : 'Pendente'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => navigate(`/clientes/${client.id}`)}
+                          title="Ver Detalhes"
+                        >
+                          <Search className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(client)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(client.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

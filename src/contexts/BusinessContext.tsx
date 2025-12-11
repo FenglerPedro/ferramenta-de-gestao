@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Client, Service, Meeting, BusinessSettings, Deal, PipelineStage, defaultPipelineStages, ProjectTask, ProjectStage, defaultProjectStages, Transaction, ClientActivity } from '@/types';
+import { Client, Service, Meeting, BusinessSettings, Deal, PipelineStage, defaultPipelineStages, ProjectTask, ProjectStage, defaultProjectStages, Transaction, ClientActivity, PurchasedService } from '@/types';
 import env from '@/config/env';
 
 interface BusinessContextType {
@@ -12,6 +12,7 @@ interface BusinessContextType {
   projectStages: ProjectStage[];
   transactions: Transaction[];
   activities: ClientActivity[];
+  purchasedServices: PurchasedService[];
   settings: BusinessSettings;
   addClient: (client: Omit<Client, 'id'>) => void;
   updateClient: (id: string, client: Partial<Client>) => void;
@@ -44,6 +45,9 @@ interface BusinessContextType {
   addActivity: (activity: Omit<ClientActivity, 'id'>) => void;
   updateActivity: (id: string, activity: Partial<ClientActivity>) => void;
   deleteActivity: (id: string) => void;
+  addPurchasedService: (service: Omit<PurchasedService, 'id'>) => void;
+  updatePurchasedService: (id: string, service: Partial<PurchasedService>) => void;
+  deletePurchasedService: (id: string) => void;
   updateSettings: (settings: Partial<BusinessSettings>) => void;
 }
 
@@ -88,6 +92,7 @@ interface StoredData {
   projectStages: ProjectStage[];
   transactions: Transaction[];
   activities: ClientActivity[];
+  purchasedServices: PurchasedService[];
   settings: BusinessSettings;
 }
 
@@ -129,12 +134,13 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   );
   const [transactions, setTransactions] = useState<Transaction[]>(storedData?.transactions ?? []);
   const [activities, setActivities] = useState<ClientActivity[]>(storedData?.activities ?? []);
+  const [purchasedServices, setPurchasedServices] = useState<PurchasedService[]>(storedData?.purchasedServices ?? []);
   const [settings, setSettings] = useState<BusinessSettings>(storedData?.settings ?? defaultSettings);
 
   // Salvar no localStorage sempre que os dados mudarem
   useEffect(() => {
-    saveToStorage({ clients, services, meetings, deals, pipelineStages, projectTasks, projectStages, transactions, activities, settings });
-  }, [clients, services, meetings, deals, pipelineStages, projectTasks, projectStages, transactions, activities, settings]);
+    saveToStorage({ clients, services, meetings, deals, pipelineStages, projectTasks, projectStages, transactions, activities, purchasedServices, settings });
+  }, [clients, services, meetings, deals, pipelineStages, projectTasks, projectStages, transactions, activities, purchasedServices, settings]);
 
   // Sincronizar dados quando há mudanças no localStorage (ex: em outras abas)
   useEffect(() => {
@@ -150,6 +156,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         setProjectStages(newData.projectStages);
         setTransactions(newData.transactions);
         setActivities(newData.activities);
+        setPurchasedServices(newData.purchasedServices);
         setSettings(newData.settings);
       }
     };
@@ -221,8 +228,6 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     const deal = deals.find(d => d.id === dealId);
     const newStage = pipelineStages.find(s => s.id === newStageId);
 
-    // Verificar se o estágio é "Fechado" ou similar (ganho/won)
-    // Se o estágio não for encontrado (ex: deletado), mas o ID for 'closed' ou 'won', consideramos fechado.
     const isClosedStage = (newStage && (
       newStage.name.toLowerCase().includes('fechado') ||
       newStage.name.toLowerCase().includes('ganho') ||
@@ -230,7 +235,6 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       newStage.id === 'won'
     )) || newStageId === 'closed' || newStageId === 'won';
 
-    // Se moveu para "Fechado" e ainda não existe cliente com este email
     if (isClosedStage && deal) {
       const clientExists = clients.some(c =>
         (c.sourceDealId === deal.id) ||
@@ -238,7 +242,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       );
 
       if (!clientExists) {
-        // Criar novo cliente automaticamente
+        const clientId = generateId();
         const newClient: Omit<Client, 'id'> = {
           name: deal.clientName,
           email: deal.clientEmail,
@@ -253,14 +257,40 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
           sourceDealId: dealId,
         };
 
-        addClient(newClient);
-        // Force update deals state first to ensure UI responsiveness, client addition happens via state setter
-      } else if (clientExists) {
-        // Se já existe, talvez atualizar o valor total?
-        // Por enquanto, mantemos a lógica de apenas criar se não existir.
+        setClients(prev => [...prev, { ...newClient, id: clientId }]);
+
+        const newService: Omit<PurchasedService, 'id'> = {
+          clientId: clientId,
+          serviceName: deal.title,
+          type: deal.type || 'one-time',
+          value: deal.value,
+          status: 'active',
+          startDate: now,
+        };
+        addPurchasedService(newService);
+
+      } else {
+        const client = clients.find(c =>
+          (c.sourceDealId === deal.id) ||
+          (c.email === deal.clientEmail && deal.clientEmail && deal.clientEmail.trim() !== '')
+        );
+
+        if (client) {
+          const newService: Omit<PurchasedService, 'id'> = {
+            clientId: client.id,
+            serviceName: deal.title,
+            type: deal.type || 'one-time',
+            value: deal.value,
+            status: 'active',
+            startDate: now,
+          };
+          addPurchasedService(newService);
+
+          const currentTotal = client.totalValue || 0;
+          updateClient(client.id, { totalValue: currentTotal + deal.value });
+        }
       }
     } else if (!isClosedStage && deal) {
-      // Se saiu de "Fechado", remover cliente associado APENAS se foi criado automaticamente por este deal
       const clientToRemove = clients.find(c => c.sourceDealId === deal.id);
       if (clientToRemove) {
         deleteClient(clientToRemove.id);
@@ -281,7 +311,6 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   };
 
   const deletePipelineStage = (id: string) => {
-    // Mover deals deste estágio para o primeiro estágio disponível
     const remainingStages = pipelineStages.filter(s => s.id !== id);
     if (remainingStages.length > 0) {
       const firstStage = remainingStages.sort((a, b) => a.order - b.order)[0];
@@ -362,6 +391,18 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setActivities(activities.filter(a => a.id !== id));
   };
 
+  const addPurchasedService = (service: Omit<PurchasedService, 'id'>) => {
+    setPurchasedServices([...purchasedServices, { ...service, id: generateId() }]);
+  };
+
+  const updatePurchasedService = (id: string, service: Partial<PurchasedService>) => {
+    setPurchasedServices(purchasedServices.map(s => s.id === id ? { ...s, ...service } : s));
+  };
+
+  const deletePurchasedService = (id: string) => {
+    setPurchasedServices(purchasedServices.filter(s => s.id !== id));
+  };
+
   const updateSettings = (newSettings: Partial<BusinessSettings>) => {
     setSettings({ ...settings, ...newSettings });
   };
@@ -410,6 +451,10 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         addActivity,
         updateActivity,
         deleteActivity,
+        purchasedServices,
+        addPurchasedService,
+        updatePurchasedService,
+        deletePurchasedService,
         updateSettings,
       }}
     >
