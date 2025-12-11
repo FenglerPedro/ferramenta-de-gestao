@@ -152,8 +152,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
            setSettings(mergedSettings);
         }
 
-        // Fetch Clients
-        const { data: clientsData } = await supabase.from('clients').select('*, client_services(services(name))');
+        // Fetch Clients - FILTRA POR USER_ID
+        const { data: clientsData } = await supabase.from('clients').select('*, client_services(services(name))').eq('user_id', user.id);
         if (clientsData) {
           const mappedClients = clientsData.map((c: any) => ({
             id: c.id,
@@ -172,8 +172,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
           setClients(mappedClients);
         }
 
-        // Fetch Services
-        const { data: servicesData } = await supabase.from('services').select('*');
+        // Fetch Services - FILTRA POR USER_ID
+        const { data: servicesData } = await supabase.from('services').select('*').eq('user_id', user.id);
         if (servicesData) {
            setServices(servicesData.map((s: any) => ({
              ...s,
@@ -181,8 +181,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
            })));
         }
 
-        // Fetch Meetings
-        const { data: meetingsData } = await supabase.from('meetings').select('*');
+        // Fetch Meetings - FILTRA POR USER_ID
+        const { data: meetingsData } = await supabase.from('meetings').select('*').eq('user_id', user.id);
         if (meetingsData) {
           setMeetings(meetingsData.map((m: any) => ({
              id: m.id,
@@ -196,8 +196,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
           })));
         }
 
-        // Fetch Deals
-        const { data: dealsData } = await supabase.from('deals').select('*');
+        // Fetch Deals - FILTRA POR USER_ID
+        const { data: dealsData } = await supabase.from('deals').select('*').eq('user_id', user.id);
         if (dealsData) {
            setDeals(dealsData.map((d: any) => ({
              id: d.id,
@@ -214,8 +214,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
            })));
         }
         
-        // Fetch Pipeline Stages
-        const { data: pipelineData } = await supabase.from('pipeline_stages').select('*').order('order');
+        // Fetch Pipeline Stages - FILTRA POR USER_ID
+        const { data: pipelineData } = await supabase.from('pipeline_stages').select('*').eq('user_id', user.id).order('order');
         if (pipelineData && pipelineData.length > 0) {
            setPipelineStages(pipelineData.map((p: any) => ({
              id: p.id,
@@ -225,8 +225,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
            })));
         }
 
-        // Fetch Project Stages
-        const { data: projectStagesData } = await supabase.from('project_stages').select('*').order('order');
+        // Fetch Project Stages - FILTRA POR USER_ID
+        const { data: projectStagesData } = await supabase.from('project_stages').select('*').eq('user_id', user.id).order('order');
         if (projectStagesData && projectStagesData.length > 0) {
            setProjectStages(projectStagesData.map((p: any) => ({
              id: p.id,
@@ -236,8 +236,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
            })));
         }
 
-        // Fetch Project Tasks
-        const { data: tasksData } = await supabase.from('project_tasks').select('*');
+        // Fetch Project Tasks - FILTRA POR USER_ID
+        const { data: tasksData } = await supabase.from('project_tasks').select('*').eq('user_id', user.id);
         if (tasksData) {
            setProjectTasks(tasksData.map((t: any) => ({
              id: t.id,
@@ -252,8 +252,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
            })));
         }
         
-        // Fetch Transactions
-        const { data: transactionsData } = await supabase.from('transactions').select('*');
+        // Fetch Transactions - FILTRA POR USER_ID
+        const { data: transactionsData } = await supabase.from('transactions').select('*').eq('user_id', user.id);
         if (transactionsData) {
            setTransactions(transactionsData.map((t: any) => ({
              id: t.id,
@@ -266,8 +266,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
            })));
         }
         
-        // Fetch Activities
-        const { data: activitiesData } = await supabase.from('client_activities').select('*');
+        // Fetch Activities - FILTRA POR USER_ID
+        const { data: activitiesData } = await supabase.from('client_activities').select('*').eq('user_id', user.id);
         if (activitiesData) {
            setActivities(activitiesData.map((a: any) => ({
              id: a.id,
@@ -280,8 +280,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
            })));
         }
         
-        // Fetch Purchased Services & Installments
-        const { data: purchasedData } = await supabase.from('purchased_services').select('*, installments(*)');
+        // Fetch Purchased Services & Installments - FILTRA POR USER_ID
+        const { data: purchasedData } = await supabase.from('purchased_services').select('*, installments(*)').eq('user_id', user.id);
         if (purchasedData) {
            setPurchasedServices(purchasedData.map((p: any) => ({
              id: p.id,
@@ -443,7 +443,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         if (client.status !== undefined) updates.status = client.status;
         if (client.photo !== undefined) updates.photo = client.photo;
 
-        const { error } = await supabase.from('clients').update(updates).eq('id', id);
+        const { error } = await supabase.from('clients').update(updates).eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error updating client:', error);
 
         if (client.services !== undefined) {
@@ -464,7 +464,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     saveCheckpoint();
     setClients(clients.filter(c => c.id !== id));
     if (user) {
-        const { error } = await supabase.from('clients').delete().eq('id', id);
+        const { error } = await supabase.from('clients').delete().eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error deleting client:', error);
     }
   };
@@ -501,7 +501,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         if (service.duration !== undefined) updates.duration = service.duration;
         if (service.isRecurring !== undefined) updates.is_recurring = service.isRecurring;
 
-        const { error } = await supabase.from('services').update(updates).eq('id', id);
+        const { error } = await supabase.from('services').update(updates).eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error updating service:', error);
     }
   };
@@ -510,7 +510,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     saveCheckpoint();
     setServices(services.filter(s => s.id !== id));
     if (user) {
-        const { error } = await supabase.from('services').delete().eq('id', id);
+        const { error } = await supabase.from('services').delete().eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error deleting service:', error);
     }
   };
@@ -551,7 +551,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         if (meeting.status !== undefined) updates.status = meeting.status;
         if (meeting.notes !== undefined) updates.notes = meeting.notes;
 
-        const { error } = await supabase.from('meetings').update(updates).eq('id', id);
+        const { error } = await supabase.from('meetings').update(updates).eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error updating meeting:', error);
     }
   };
@@ -560,7 +560,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     saveCheckpoint();
     setMeetings(meetings.filter(m => m.id !== id));
     if (user) {
-        const { error } = await supabase.from('meetings').delete().eq('id', id);
+        const { error } = await supabase.from('meetings').delete().eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error deleting meeting:', error);
     }
   };
@@ -603,7 +603,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         if (deal.clientPhone !== undefined) updates.client_phone = deal.clientPhone;
         if (deal.notes !== undefined) updates.notes = deal.notes;
 
-        const { error } = await supabase.from('deals').update(updates).eq('id', id);
+        const { error } = await supabase.from('deals').update(updates).eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error updating deal:', error);
     }
   };
@@ -612,7 +612,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     saveCheckpoint();
     setDeals(deals.filter(d => d.id !== id));
     if (user) {
-        const { error } = await supabase.from('deals').delete().eq('id', id);
+        const { error } = await supabase.from('deals').delete().eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error deleting deal:', error);
     }
   };
@@ -699,7 +699,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
          const { error } = await supabase.from('deals').update({ 
             pipeline_stage_id: newStageId, 
             updated_at: new Date().toISOString() 
-        }).eq('id', dealId);
+        }).eq('id', dealId).eq('user_id', user.id);
         if (error) console.error('Error moving deal:', error);
     }
   };
@@ -734,7 +734,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         if (stage.color !== undefined) updates.color = stage.color;
         if (stage.order !== undefined) updates.order = stage.order;
 
-        const { error } = await supabase.from('pipeline_stages').update(updates).eq('id', id);
+        const { error } = await supabase.from('pipeline_stages').update(updates).eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error updating pipeline stage:', error);
     }
   };
@@ -746,13 +746,13 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       const firstStage = remainingStages.sort((a, b) => a.order - b.order)[0];
       setDeals(deals.map(d => d.stageId === id ? { ...d, stageId: firstStage.id } : d));
       if (user) {
-          await supabase.from('deals').update({ pipeline_stage_id: firstStage.id }).eq('pipeline_stage_id', id);
+          await supabase.from('deals').update({ pipeline_stage_id: firstStage.id }).eq('pipeline_stage_id', id).eq('user_id', user.id);
       }
     }
     setPipelineStages(remainingStages);
     
     if (user) {
-        const { error } = await supabase.from('pipeline_stages').delete().eq('id', id);
+        const { error } = await supabase.from('pipeline_stages').delete().eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error deleting pipeline stage:', error);
     }
   };
@@ -769,8 +769,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
             color: s.color,
             order: index
         }));
-        const { error } = await supabase.from('pipeline_stages').upsert(updates);
-        if (error) console.error('Error reordering pipeline stages:', error);
+        for (const update of updates) {
+            await supabase.from('pipeline_stages').update(update).eq('id', update.id).eq('user_id', user.id);
+        }
     }
   };
 
@@ -811,7 +812,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         if (task.priority !== undefined) updates.priority = task.priority;
         if (task.dueDate !== undefined) updates.due_date = task.dueDate;
 
-        const { error } = await supabase.from('project_tasks').update(updates).eq('id', id);
+        const { error } = await supabase.from('project_tasks').update(updates).eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error updating project task:', error);
     }
   };
@@ -821,7 +822,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setProjectTasks(projectTasks.filter(t => t.id !== id));
     
     if (user) {
-        const { error } = await supabase.from('project_tasks').delete().eq('id', id);
+        const { error } = await supabase.from('project_tasks').delete().eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error deleting project task:', error);
     }
   };
@@ -835,7 +836,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.from('project_tasks').update({ 
             project_stage_id: newStageId,
             updated_at: now
-        }).eq('id', taskId);
+        }).eq('id', taskId).eq('user_id', user.id);
         if (error) console.error('Error moving project task:', error);
     }
   };
@@ -868,7 +869,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         if (stage.name !== undefined) updates.name = stage.name;
         if (stage.order !== undefined) updates.order = stage.order;
         
-        const { error } = await supabase.from('project_stages').update(updates).eq('id', id);
+        const { error } = await supabase.from('project_stages').update(updates).eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error updating project stage:', error);
     }
   };
@@ -881,13 +882,13 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       setProjectTasks(projectTasks.map(t => t.stageId === id ? { ...t, stageId: firstStage.id } : t));
       
       if (user) {
-          await supabase.from('project_tasks').update({ project_stage_id: firstStage.id }).eq('project_stage_id', id);
+          await supabase.from('project_tasks').update({ project_stage_id: firstStage.id }).eq('project_stage_id', id).eq('user_id', user.id);
       }
     }
     setProjectStages(remainingStages);
 
     if (user) {
-        const { error } = await supabase.from('project_stages').delete().eq('id', id);
+        const { error } = await supabase.from('project_stages').delete().eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error deleting project stage:', error);
     }
   };
@@ -903,8 +904,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
             name: s.name,
             order: index
         }));
-        const { error } = await supabase.from('project_stages').upsert(updates);
-        if (error) console.error('Error reordering project stages:', error);
+        for (const update of updates) {
+            await supabase.from('project_stages').update(update).eq('id', update.id).eq('user_id', user.id);
+        }
     }
   };
 
@@ -943,7 +945,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         if (transaction.status !== undefined) updates.status = transaction.status;
         if (transaction.clientId !== undefined) updates.client_id = transaction.clientId || null;
 
-        const { error } = await supabase.from('transactions').update(updates).eq('id', id);
+        const { error } = await supabase.from('transactions').update(updates).eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error updating transaction:', error);
     }
   };
@@ -953,7 +955,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setTransactions(transactions.filter(t => t.id !== id));
 
     if (user) {
-        const { error } = await supabase.from('transactions').delete().eq('id', id);
+        const { error } = await supabase.from('transactions').delete().eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error deleting transaction:', error);
     }
   };
@@ -988,7 +990,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         if (activity.description !== undefined) updates.description = activity.description;
         if (activity.date !== undefined) updates.date = activity.date;
 
-        const { error } = await supabase.from('client_activities').update(updates).eq('id', id);
+        const { error } = await supabase.from('client_activities').update(updates).eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error updating activity:', error);
     }
   };
@@ -998,7 +1000,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setActivities(activities.filter(a => a.id !== id));
 
     if (user) {
-        const { error } = await supabase.from('client_activities').delete().eq('id', id);
+        const { error } = await supabase.from('client_activities').delete().eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error deleting activity:', error);
     }
   };
@@ -1038,7 +1040,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         if (service.status !== undefined) updates.status = service.status;
         if (service.nextBillingDate !== undefined) updates.next_billing_date = service.nextBillingDate;
 
-        const { error } = await supabase.from('purchased_services').update(updates).eq('id', id);
+        const { error } = await supabase.from('purchased_services').update(updates).eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error updating purchased service:', error);
     }
   };
@@ -1048,7 +1050,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setPurchasedServices(purchasedServices.filter(s => s.id !== id));
 
     if (user) {
-        const { error } = await supabase.from('purchased_services').delete().eq('id', id);
+        const { error } = await supabase.from('purchased_services').delete().eq('id', id).eq('user_id', user.id);
         if (error) console.error('Error deleting purchased service:', error);
     }
   };
