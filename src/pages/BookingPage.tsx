@@ -11,6 +11,7 @@ import { format, isBefore, startOfToday, parseISO, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Clock, Check, ChevronLeft, Calendar as CalendarIcon, Globe } from 'lucide-react';
 import { toast } from 'sonner';
+import { validateEmail } from '@/utils/masks';
 
 export default function BookingPage() {
   const { settings, meetings, addMeeting } = useBusiness();
@@ -128,6 +129,11 @@ export default function BookingPage() {
   const handleSubmit = () => {
     if (!formData.name || !formData.email) {
       toast.error('Por favor, preencha todos os campos.');
+      return;
+    }
+
+    if (!validateEmail(formData.email)) {
+      toast.error('Email inválido');
       return;
     }
 

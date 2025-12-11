@@ -3,14 +3,33 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTerminology } from '@/hooks/useTerminology';
-import { Archive, XCircle, Search, RefreshCcw } from 'lucide-react';
+import { Archive, XCircle, Search, RefreshCcw, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
+import { Deal } from '@/types';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 
-export function HistoryViews() {
-    const { deals, moveDeal } = useBusiness();
+interface HistoryViewsProps {
+    onEdit: (deal: Deal) => void;
+}
+
+export function HistoryViews({ onEdit }: HistoryViewsProps) {
+    const { deals, moveDeal, deleteDeal } = useBusiness();
     const terms = useTerminology();
     const [searchTerm, setSearchTerm] = useState('');
+
+    const handleDelete = (id: string) => {
+        if (confirm('Tem certeza que deseja excluir este item permanentemente?')) {
+            deleteDeal(id);
+            toast.success(`${terms.deal} removido permanentemente!`);
+        }
+    };
 
     const closedDeals = deals.filter(d => d.stageId === 'closed');
     const lostDeals = deals.filter(d => d.stageId === 'lost');
@@ -60,15 +79,37 @@ export function HistoryViews() {
                                             <h4 className="font-semibold">{deal.title}</h4>
                                             <p className="text-sm text-muted-foreground">{deal.clientName} • R$ {deal.value.toLocaleString('pt-BR')}</p>
                                         </div>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => moveDeal(deal.id, 'lead')}
-                                            className="gap-2"
-                                        >
-                                            <RefreshCcw className="h-3 w-3" />
-                                            Reabrir
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => moveDeal(deal.id, 'lead')}
+                                                className="gap-2"
+                                            >
+                                                <RefreshCcw className="h-3 w-3" />
+                                                Reabrir
+                                            </Button>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => onEdit(deal)}>
+                                                        <Pencil className="h-4 w-4 mr-2" />
+                                                        Editar
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleDelete(deal.id)}
+                                                        className="text-destructive"
+                                                    >
+                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                        Excluir
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             ))
@@ -110,15 +151,37 @@ export function HistoryViews() {
                                             <h4 className="font-semibold">{deal.title}</h4>
                                             <p className="text-sm text-muted-foreground">{deal.clientName} • R$ {deal.value.toLocaleString('pt-BR')}</p>
                                         </div>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => moveDeal(deal.id, 'lead')}
-                                            className="gap-2"
-                                        >
-                                            <RefreshCcw className="h-3 w-3" />
-                                            Reabrir
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => moveDeal(deal.id, 'lead')}
+                                                className="gap-2"
+                                            >
+                                                <RefreshCcw className="h-3 w-3" />
+                                                Reabrir
+                                            </Button>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => onEdit(deal)}>
+                                                        <Pencil className="h-4 w-4 mr-2" />
+                                                        Editar
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleDelete(deal.id)}
+                                                        className="text-destructive"
+                                                    >
+                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                        Excluir
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             ))

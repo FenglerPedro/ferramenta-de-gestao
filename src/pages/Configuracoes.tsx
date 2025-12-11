@@ -13,6 +13,7 @@ import { ThemeCustomizer } from '@/components/settings/ThemeCustomizer';
 import { PipelineSettings } from '@/components/settings/PipelineSettings';
 import { BlockedDate, BlockedTimeSlot, DaySchedule } from '@/types';
 import { eachDayOfInterval, format, parseISO } from 'date-fns';
+import { maskPhone, validateEmail } from '@/utils/masks';
 
 const weekDays = [
   { id: 0, label: 'Domingo' },
@@ -62,6 +63,10 @@ export default function Configuracoes() {
 
     autoSaveTimeoutRef.current = setTimeout(() => {
       if (JSON.stringify(formData) !== JSON.stringify(lastSavedData)) {
+        if (formData.email && !validateEmail(formData.email)) {
+          toast.error("Email inválido. Configurações não salvas.");
+          return;
+        }
         updateSettings(formData);
         setLastSavedData(formData);
         toast.success('Configurações salvas automaticamente!', { duration: 2 });
@@ -316,7 +321,8 @@ export default function Configuracoes() {
                 <Label>Telefone</Label>
                 <Input
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, phone: maskPhone(e.target.value) })}
+                  maxLength={15}
                 />
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,15 +38,21 @@ import { useBusiness } from '@/contexts/BusinessContext';
 import { useTerminology } from '@/hooks/useTerminology';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Plus, Search, Pencil, Trash2, Kanban as KanbanIcon } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Kanban as KanbanIcon, Filter, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { maskPhone, validateEmail } from '@/utils/masks';
 
 export default function Clientes() {
-  const { clients, services, addClient, updateClient, deleteClient, purchasedServices, addPurchasedService } = useBusiness();
+  const { clients, services, addClient, updateClient, deleteClient, purchasedServices, addPurchasedService, transactions } = useBusiness();
   const terms = useTerminology();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterService, setFilterService] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [sortField, setSortField] = useState('date');
+  const [sortOrder, setSortOrder] = useState('desc');
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<string | null>(null);
   const [customService, setCustomService] = useState('');
@@ -72,11 +78,56 @@ export default function Clientes() {
     status: 'active',
   });
 
-  const filteredClients = clients.filter(
-    (client) =>
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Collect all unique service names for the filter
+  const allUniqueServiceNames = useMemo(() => {
+    const names = new Set<string>();
+    services.forEach(s => names.add(s.name));
+    purchasedServices.forEach(s => names.add(s.serviceName));
+    clients.forEach(c => {
+      if (c.services) c.services.forEach(s => names.add(s));
+      if (c.service) names.add(c.service);
+    });
+    return Array.from(names).filter(Boolean).sort();
+  }, [services, purchasedServices, clients]);
+
+  const filteredClients = useMemo(() => {
+    return clients
+      .filter((client) => {
+        // Search Filter
+        const matchesSearch = 
+          client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        // Status Filter
+        const matchesStatus = filterStatus === 'all' || client.status === filterStatus;
+
+        // Service Filter
+        const clientServices = new Set([
+          ...(client.services || []),
+          client.service,
+          ...purchasedServices.filter(ps => ps.clientId === client.id).map(ps => ps.serviceName)
+        ].filter(Boolean));
+        
+        const matchesService = filterService === 'all' || clientServices.has(filterService);
+
+        return matchesSearch && matchesStatus && matchesService;
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+        
+        if (sortField === 'date') {
+          const dateA = new Date(a.purchaseDate).getTime();
+          const dateB = new Date(b.purchaseDate).getTime();
+          comparison = dateA - dateB;
+        } else if (sortField === 'name') {
+          comparison = a.name.localeCompare(b.name);
+        } else if (sortField === 'status') {
+          comparison = a.status.localeCompare(b.status);
+        }
+
+        return sortOrder === 'asc' ? comparison : -comparison;
+      });
+  }, [clients, searchTerm, filterStatus, filterService, sortField, sortOrder, purchasedServices]);
 
   const resetForm = () => {
     setFormData({
@@ -116,6 +167,11 @@ export default function Clientes() {
 
     if (!formData.name || finalServices.length === 0) {
       toast.error(`Preencha o nome e selecione pelo menos um ${terms.service.toLowerCase()}`);
+      return;
+    }
+
+    if (formData.email && !validateEmail(formData.email)) {
+      toast.error('Email inválido');
       return;
     }
 
@@ -203,12 +259,12 @@ export default function Clientes() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{terms.clients}</h1>
           <p className="text-muted-foreground">Gerencie seus {terms.clients.toLowerCase()} e contratos</p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full xl:w-auto flex-wrap">
           <div className="relative flex-1 sm:flex-initial">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -218,9 +274,60 @@ export default function Clientes() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          <Select value={filterService} onValueChange={setFilterService}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <div className="flex items-center gap-2 truncate">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="Todos Serviços" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Serviços</SelectItem>
+              {allUniqueServiceNames.map(s => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-full sm:w-[140px]">
+               <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Status</SelectItem>
+              <SelectItem value="active">Ativo</SelectItem>
+              <SelectItem value="inactive">Inativo</SelectItem>
+              <SelectItem value="pending">Pendente</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Select value={sortField} onValueChange={(v: any) => setSortField(v)}>
+              <SelectTrigger className="w-full sm:w-[140px]">
+                <SelectValue placeholder="Ordenar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Data</SelectItem>
+                <SelectItem value="name">Nome</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              title={sortOrder === 'asc' ? 'Crescente' : 'Decrescente'}
+              className="shrink-0"
+            >
+              {sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+            </Button>
+          </div>
+
           <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button className="gap-2 whitespace-nowrap">
+              <Button className="gap-2 whitespace-nowrap w-full sm:w-auto">
                 <Plus className="h-4 w-4" />
                 Novo {terms.client}
               </Button>
@@ -255,7 +362,8 @@ export default function Clientes() {
                     <Input
                       placeholder="(11) 99999-9999"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, phone: maskPhone(e.target.value) })}
+                      maxLength={15}
                     />
                   </div>
                   <div className="space-y-2">
@@ -414,7 +522,7 @@ export default function Clientes() {
             </TableHeader>
             <TableBody>
               {filteredClients.map((client) => {
-                const clientTransactions = useBusiness().transactions.filter(t => t.clientId === client.id && t.status === 'paid');
+                const clientTransactions = transactions.filter(t => t.clientId === client.id && t.status === 'paid');
                 const paidValue = clientTransactions.reduce((acc, t) => acc + t.amount, 0);
 
                 return (

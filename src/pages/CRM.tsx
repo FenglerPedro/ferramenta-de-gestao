@@ -21,6 +21,8 @@ import {
 import { useTerminology } from '@/hooks/useTerminology';
 import { HistoryViews } from '@/components/crm/HistoryViews';
 import { PipelineSettings } from '@/components/settings/PipelineSettings';
+import { maskPhone, validateEmail } from '@/utils/masks';
+import { CurrencyInput } from '@/components/ui/currency-input';
 
 export default function CRM() {
     const { deals, pipelineStages, addDeal, updateDeal, deleteDeal, moveDeal, services } = useBusiness();
@@ -82,6 +84,11 @@ export default function CRM() {
     const handleSubmit = () => {
         if (!formData.clientName || !formData.title) {
             toast.error('Preencha os campos obrigatórios');
+            return;
+        }
+
+        if (formData.clientEmail && !validateEmail(formData.clientEmail)) {
+            toast.error('Email inválido');
             return;
         }
 
@@ -165,7 +172,7 @@ export default function CRM() {
                         />
                     </div>
 
-                    <HistoryViews />
+                    <HistoryViews onEdit={handleEdit} />
 
                     <Dialog>
                         <DialogTrigger asChild>
@@ -215,7 +222,8 @@ export default function CRM() {
                                         <Input
                                             placeholder="(11) 99999-9999"
                                             value={formData.clientPhone}
-                                            onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
+                                            onChange={(e) => setFormData({ ...formData, clientPhone: maskPhone(e.target.value) })}
+                                            maxLength={15}
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -265,12 +273,11 @@ export default function CRM() {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Valor (R$)</Label>
-                                        <Input
-                                            type="number"
-                                            placeholder="0,00"
+                                        <Label>Valor</Label>
+                                        <CurrencyInput
                                             value={formData.value}
-                                            onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
+                                            onChange={(val) => setFormData({ ...formData, value: val })}
+                                            placeholder="R$ 0,00"
                                         />
                                     </div>
                                 </div>

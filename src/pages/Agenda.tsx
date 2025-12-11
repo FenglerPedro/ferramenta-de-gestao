@@ -10,6 +10,7 @@ import { ptBR } from 'date-fns/locale';
 import { Plus, ChevronLeft, ChevronRight, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AppointmentCard } from '@/components/agenda/AppointmentCard';
+import { validateEmail } from '@/utils/masks';
 
 import { useTerminology } from '@/hooks/useTerminology';
 
@@ -91,6 +92,11 @@ export default function Agenda() {
   const handleAddMeeting = () => {
     if (!newMeeting.clientName || !newMeeting.clientEmail) {
       toast.error('Preencha todos os campos');
+      return;
+    }
+
+    if (!validateEmail(newMeeting.clientEmail)) {
+      toast.error('Email inválido');
       return;
     }
 

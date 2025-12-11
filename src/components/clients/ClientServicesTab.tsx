@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -9,9 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { useBusiness } from '@/contexts/BusinessContext';
 import { PurchasedService, Installment, Transaction } from '@/types';
-import { format, parseISO, addMonths } from 'date-fns';
+import { format, parseISO, addMonths, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Plus, DollarSign, Calendar, CheckCircle2, AlertCircle, Trash2, Pencil } from 'lucide-react';
+import { Plus, DollarSign, Calendar, CheckCircle2, AlertCircle, Trash2, Pencil, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import { CurrencyInput } from '@/components/ui/currency-input';
 
@@ -20,9 +20,12 @@ interface ClientServicesTabProps {
 }
 
 export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
-    const { purchasedServices, addPurchasedService, updatePurchasedService, deletePurchasedService, addTransaction, transactions } = useBusiness();
+    const { purchasedServices, addPurchasedService, updatePurchasedService, deletePurchasedService, addTransaction, transactions, services } = useBusiness();
     const [isNewServiceOpen, setIsNewServiceOpen] = useState(false);
     
+    // Filter State
+    const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
+
     // Installment Generation State
     const [generationCounts, setGenerationCounts] = useState<Record<string, number>>({});
     
@@ -39,48 +42,111 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
     const [newServiceName, setNewServiceName] = useState('');
 
     // Form State
+    const [customService, setCustomService] = useState('');
     const [formData, setFormData] = useState<{
-        serviceName: string;
+        selectedServices: string[];
         type: 'recurring' | 'one-time';
         value: number;
         startDate: string;
     }>({
-        serviceName: '',
+        selectedServices: [],
         type: 'one-time',
         value: 0,
         startDate: format(new Date(), 'yyyy-MM-dd'),
     });
 
-    const clientServices = purchasedServices.filter(s => s.clientId === clientId);
+    const handleAddCustomService = () => {
+        if (customService.trim()) {
+            const newService = customService.trim();
+            if (!formData.selectedServices.includes(newService)) {
+                setFormData(prev => ({
+                    ...prev,
+                    selectedServices: [...prev.selectedServices, newService]
+                }));
+            }
+            setCustomService('');
+        }
+    };
+
+    const toggleService = (serviceName: string) => {
+        setFormData(prev => ({
+            ...prev,
+            selectedServices: prev.selectedServices.includes(serviceName)
+                ? prev.selectedServices.filter(s => s !== serviceName)
+                : [...prev.selectedServices, serviceName]
+        }));
+    };
+
+    const getPaidAmount = (service: PurchasedService) => {
+        const serviceTransactions = transactions.filter(t => t.serviceId === service.id);
+        return serviceTransactions.reduce((acc, t) => acc + t.amount, 0);
+    };
+
+    const getServiceFinancialStatus = (service: PurchasedService): 'paid' | 'pending' | 'overdue' => {
+        if (service.type === 'one-time') {
+            const paidAmount = getPaidAmount(service);
+            return paidAmount >= service.value ? 'paid' : 'pending';
+        } else {
+            // Recurring
+            if (!service.installments || service.installments.length === 0) return 'active' as any; // Default to pending/active logic
+            
+            const hasOverdue = service.installments.some(inst => inst.status === 'overdue');
+            if (hasOverdue) return 'overdue';
+            
+            const hasPending = service.installments.some(inst => inst.status === 'pending');
+            if (hasPending) return 'pending';
+            
+            // If all generated are paid
+            return 'paid';
+        }
+    };
+
+    const clientServices = useMemo(() => {
+        const services = purchasedServices.filter(s => s.clientId === clientId);
+        if (filterStatus === 'all') return services;
+        
+        return services.filter(service => {
+            const status = getServiceFinancialStatus(service);
+            return status === filterStatus;
+        });
+    }, [purchasedServices, clientId, filterStatus, transactions]);
 
     const handleCreateService = () => {
-        if (!formData.serviceName || formData.value <= 0) {
-            toast.error('Preencha o nome e o valor do serviço.');
+        // Add custom service if user forgot to click add button but typed something
+        let finalServices = [...formData.selectedServices];
+        if (customService.trim() && !finalServices.includes(customService.trim())) {
+            finalServices.push(customService.trim());
+        }
+
+        if (finalServices.length === 0 || formData.value <= 0) {
+            toast.error('Selecione pelo menos um serviço e informe o valor.');
             return;
         }
 
-        const newService: Omit<PurchasedService, 'id'> = {
-            clientId,
-            serviceName: formData.serviceName,
-            type: formData.type,
-            value: formData.value,
-            status: 'active',
-            startDate: formData.startDate,
-            installments: formData.type === 'recurring' ? [] : undefined,
-        };
+        const valuePerService = formData.value / finalServices.length;
 
-        // If recurring and we want to auto-generate first installment? 
-        // Let's keep it empty and let user generate.
+        finalServices.forEach(serviceName => {
+            const newService: Omit<PurchasedService, 'id'> = {
+                clientId,
+                serviceName: serviceName,
+                type: formData.type,
+                value: valuePerService,
+                status: 'active',
+                startDate: formData.startDate,
+                installments: formData.type === 'recurring' ? [] : undefined,
+            };
+            addPurchasedService(newService);
+        });
 
-        addPurchasedService(newService);
-        toast.success('Serviço adicionado!');
+        toast.success(`${finalServices.length} serviço(s) adicionado(s)!`);
         setIsNewServiceOpen(false);
         setFormData({
-            serviceName: '',
+            selectedServices: [],
             type: 'one-time',
             value: 0,
             startDate: format(new Date(), 'yyyy-MM-dd'),
         });
+        setCustomService('');
     };
 
     const handleDeleteService = (id: string, e: React.MouseEvent) => {
@@ -217,65 +283,151 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center bg-muted/20 p-4 rounded-lg">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-muted/20 p-4 rounded-lg gap-4">
                 <div>
                     <h3 className="text-lg font-medium">Serviços Contratados</h3>
                     <p className="text-sm text-muted-foreground">Gerencie assinaturas e projetos pontuais</p>
                 </div>
-                <Dialog open={isNewServiceOpen} onOpenChange={setIsNewServiceOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="gap-2">
-                            <Plus className="h-4 w-4" /> Novo Serviço
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Adicionar Novo Serviço</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label>Nome do Serviço</Label>
-                                <Input
-                                    placeholder="Ex: Consultoria Mensal"
-                                    value={formData.serviceName}
-                                    onChange={(e) => setFormData({ ...formData, serviceName: e.target.value })}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+                
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
+                        <SelectTrigger className="w-[140px] bg-background">
+                             <div className="flex items-center gap-2">
+                                <Filter className="h-4 w-4 text-muted-foreground" />
+                                <SelectValue placeholder="Status" />
+                             </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos</SelectItem>
+                            <SelectItem value="paid">Pago</SelectItem>
+                            <SelectItem value="pending">Pendente</SelectItem>
+                            <SelectItem value="overdue">Atrasado</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Dialog open={isNewServiceOpen} onOpenChange={setIsNewServiceOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="gap-2 whitespace-nowrap">
+                                <Plus className="h-4 w-4" /> Novo Serviço
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                                <DialogTitle>Adicionar Novo Serviço</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
                                 <div className="space-y-2">
-                                    <Label>Tipo</Label>
-                                    <Select
-                                        value={formData.type}
-                                        onValueChange={(val: 'recurring' | 'one-time') => setFormData({ ...formData, type: val })}
-                                    >
-                                        <SelectTrigger><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="one-time">Pontual (À vista)</SelectItem>
-                                            <SelectItem value="recurring">Recorrente (Mensal)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                    <Label>Serviços *</Label>
+                                    <div className="flex gap-2 mb-2">
+                                        <Input 
+                                            placeholder="Adicionar outro serviço..." 
+                                            value={customService}
+                                            onChange={(e) => setCustomService(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleAddCustomService();
+                                                }
+                                            }}
+                                        />
+                                        <Button type="button" variant="outline" onClick={handleAddCustomService}>
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg max-h-40 overflow-y-auto">
+                                        {services.map((service) => (
+                                            <div key={service.id} className="flex items-center space-x-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id={`service-${service.id}`}
+                                                    checked={formData.selectedServices.includes(service.name)}
+                                                    onChange={() => toggleService(service.name)}
+                                                    className="h-4 w-4 rounded border-gray-300"
+                                                />
+                                                <label
+                                                    htmlFor={`service-${service.id}`}
+                                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                >
+                                                    {service.name}
+                                                </label>
+                                            </div>
+                                        ))}
+                                        {formData.selectedServices
+                                            .filter(s => !services.find(svc => svc.name === s))
+                                            .map((serviceName, idx) => (
+                                                <div key={`custom-${idx}`} className="flex items-center space-x-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`custom-service-${idx}`}
+                                                        checked={true}
+                                                        onChange={() => toggleService(serviceName)}
+                                                        className="h-4 w-4 rounded border-gray-300"
+                                                    />
+                                                    <label
+                                                        htmlFor={`custom-service-${idx}`}
+                                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                    >
+                                                        {serviceName}
+                                                    </label>
+                                                </div>
+                                            ))}
+                                    </div>
+                                    {formData.selectedServices.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {formData.selectedServices.map((serviceName) => (
+                                                <Badge key={serviceName} variant="secondary" className="gap-1">
+                                                    {serviceName}
+                                                    <span 
+                                                        className="cursor-pointer ml-1 hover:text-destructive"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            toggleService(serviceName);
+                                                        }}
+                                                    >
+                                                        ×
+                                                    </span>
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Tipo</Label>
+                                        <Select
+                                            value={formData.type}
+                                            onValueChange={(val: 'recurring' | 'one-time') => setFormData({ ...formData, type: val })}
+                                        >
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="one-time">Pontual (À vista)</SelectItem>
+                                                <SelectItem value="recurring">Recorrente (Mensal)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Valor Total (será dividido)</Label>
+                                        <CurrencyInput
+                                            value={formData.value}
+                                            onChange={(val) => setFormData({ ...formData, value: val })}
+                                            placeholder="R$ 0,00"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Valor {formData.type === 'recurring' ? '(Mensal)' : '(Total)'}</Label>
-                                    <CurrencyInput
-                                        value={formData.value}
-                                        onChange={(val) => setFormData({ ...formData, value: val })}
-                                        placeholder="R$ 0,00"
+                                    <Label>Data de Início/Venda</Label>
+                                    <Input
+                                        type="date"
+                                        value={formData.startDate}
+                                        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                                     />
                                 </div>
+                                <Button onClick={handleCreateService} className="w-full">Salvar Serviços</Button>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Data de Início/Venda</Label>
-                                <Input
-                                    type="date"
-                                    value={formData.startDate}
-                                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                                />
-                            </div>
-                            <Button onClick={handleCreateService} className="w-full">Salvar Serviço</Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
 
             {clientServices.length === 0 && (
