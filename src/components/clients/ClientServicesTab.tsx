@@ -22,6 +22,21 @@ interface ClientServicesTabProps {
 export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
     const { purchasedServices, addPurchasedService, updatePurchasedService, deletePurchasedService, addTransaction, transactions } = useBusiness();
     const [isNewServiceOpen, setIsNewServiceOpen] = useState(false);
+    
+    // Installment Generation State
+    const [generationCounts, setGenerationCounts] = useState<Record<string, number>>({});
+    
+    // Edit Installment State
+    const [editingInstallment, setEditingInstallment] = useState<{ serviceId: string, installment: Installment } | null>(null);
+    const [isEditInstallmentOpen, setIsEditInstallmentOpen] = useState(false);
+    const [editInstallmentData, setEditInstallmentData] = useState({
+        dueDate: '',
+        status: 'pending' as 'pending' | 'paid' | 'overdue'
+    });
+
+    // Edit Service Name State
+    const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+    const [newServiceName, setNewServiceName] = useState('');
 
     // Form State
     const [formData, setFormData] = useState<{
@@ -77,14 +92,15 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
     };
 
     const handleGenerateInstallments = (service: PurchasedService) => {
-        // Generate for next 12 months based on start date or last installment
+        // Generate for next N months based on start date or last installment
+        const count = generationCounts[service.id] || 12;
         const installments: Installment[] = service.installments || [];
         const lastDate = installments.length > 0
             ? parseISO(installments[installments.length - 1].dueDate)
             : parseISO(service.startDate);
 
         const newInstallments: Installment[] = [];
-        for (let i = 1; i <= 12; i++) {
+        for (let i = 1; i <= count; i++) {
             const dueDate = addMonths(lastDate, i);
             newInstallments.push({
                 id: Math.random().toString(36).substr(2, 9),
@@ -98,18 +114,67 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
 
         const updatedInstallments = [...installments, ...newInstallments];
         updatePurchasedService(service.id, { installments: updatedInstallments });
-        toast.success('Parcelas geradas!');
+        toast.success(`${count} parcelas geradas!`);
+    };
+
+    const openEditInstallment = (serviceId: string, installment: Installment) => {
+        setEditingInstallment({ serviceId, installment });
+        setEditInstallmentData({
+            dueDate: installment.dueDate,
+            status: installment.status
+        });
+        setIsEditInstallmentOpen(true);
+    };
+
+    const handleSaveInstallmentEdit = () => {
+        if (!editingInstallment) return;
+        const { serviceId, installment } = editingInstallment;
+        const service = purchasedServices.find(s => s.id === serviceId);
+        if (!service || !service.installments) return;
+
+        const updatedInstallments = service.installments.map(inst => 
+            inst.id === installment.id 
+                ? { ...inst, dueDate: editInstallmentData.dueDate, status: editInstallmentData.status }
+                : inst
+        );
+        
+        updatePurchasedService(serviceId, { installments: updatedInstallments });
+        toast.success('Parcela atualizada!');
+        setIsEditInstallmentOpen(false);
+        setEditingInstallment(null);
+    };
+
+    const startEditingService = (service: PurchasedService) => {
+        setEditingServiceId(service.id);
+        setNewServiceName(service.serviceName);
+    };
+
+    const handleSaveServiceName = (serviceId: string) => {
+        if (!newServiceName.trim()) return;
+        updatePurchasedService(serviceId, { serviceName: newServiceName });
+        toast.success('Nome do serviço atualizado!');
+        setEditingServiceId(null);
+    };
+
+    const handleDeleteInstallment = (service: PurchasedService, installmentId: string) => {
+        if (!service.installments) return;
+        if (confirm('Tem certeza que deseja excluir esta parcela?')) {
+            const updatedInstallments = service.installments.filter(i => i.id !== installmentId);
+            updatePurchasedService(service.id, { installments: updatedInstallments });
+            toast.success('Parcela removida!');
+        }
     };
 
     const handlePayInstallment = (service: PurchasedService, installment: Installment) => {
+        const today = format(new Date(), 'yyyy-MM-dd');
         // Create Transaction
         const transaction: Omit<Transaction, 'id'> = {
             clientId,
-            date: format(new Date(), 'yyyy-MM-dd'),
+            date: today,
             amount: installment.value,
             description: `Parcela ${installment.number} - ${service.serviceName}`,
             status: 'paid',
-            paymentMethod: 'pix', // Default or ask?
+            paymentMethod: 'pix',
             serviceId: service.id,
             installmentId: installment.id
         };
@@ -119,14 +184,10 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
         // Update Installment Status
         const updatedInstallments = service.installments?.map(inst =>
             inst.id === installment.id
-                ? { ...inst, status: 'paid' as const, transactionId: 'pending-link' } // We don't have transaction ID yet until after addTransaction... 
-                // Wait, addTransaction is sync but ID generation is internal inside BusinessContext.
-                // We can't link readily unless we generate ID here.
+                ? { ...inst, status: 'paid' as const, paymentDate: today, transactionId: 'pending-link' }
                 : inst
         );
 
-        // Simple fix: update status to paid. Link is implicitly by Logic matching or we refactor addTransaction to return ID.
-        // For now, let's mark as paid.
         updatePurchasedService(service.id, { installments: updatedInstallments });
         toast.success('Pagamento registrado!');
     };
@@ -237,7 +298,25 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                                             {service.type === 'recurring' ? <Calendar className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />}
                                         </div>
                                         <div className="text-left">
-                                            <h4 className="font-semibold">{service.serviceName}</h4>
+                                            {editingServiceId === service.id ? (
+                                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                    <Input 
+                                                        value={newServiceName} 
+                                                        onChange={(e) => setNewServiceName(e.target.value)}
+                                                        className="h-8 w-48"
+                                                        autoFocus
+                                                    />
+                                                    <Button size="sm" onClick={() => handleSaveServiceName(service.id)}>Salvar</Button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 group">
+                                                    <h4 className="font-semibold">{service.serviceName}</h4>
+                                                    <Pencil 
+                                                        className="h-3 w-3 opacity-0 group-hover:opacity-100 cursor-pointer text-muted-foreground" 
+                                                        onClick={(e) => { e.stopPropagation(); startEditingService(service); }}
+                                                    />
+                                                </div>
+                                            )}
                                             <p className="text-xs text-muted-foreground">
                                                 {service.type === 'recurring' ? 'Recorrente' : 'Pontual'} • Iniciado em {format(parseISO(service.startDate), 'dd/MM/yyyy', { locale: ptBR })}
                                             </p>
@@ -278,11 +357,20 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                                         </div>
                                     ) : (
                                         <div className="space-y-4">
-                                            <div className="flex justify-between items-center">
+                                            <div className="flex justify-between items-center gap-4">
                                                 <h5 className="text-sm font-medium">Parcelas / Mensalidades</h5>
-                                                <Button size="sm" variant="outline" onClick={() => handleGenerateInstallments(service)}>
-                                                    Gerar Próximas 12 Parcelas
-                                                </Button>
+                                                <div className="flex items-center gap-2">
+                                                    <Input 
+                                                        type="number" 
+                                                        className="w-20 h-8" 
+                                                        value={generationCounts[service.id] || 12}
+                                                        onChange={(e) => setGenerationCounts({ ...generationCounts, [service.id]: parseInt(e.target.value) || 0 })}
+                                                        placeholder="12"
+                                                    />
+                                                    <Button size="sm" variant="outline" onClick={() => handleGenerateInstallments(service)}>
+                                                        Gerar Parcelas
+                                                    </Button>
+                                                </div>
                                             </div>
 
                                             <div className="space-y-2">
@@ -301,16 +389,27 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                                                                 <p className="text-xs text-muted-foreground">R$ {installment.value.toLocaleString('pt-BR')}</p>
                                                             </div>
                                                         </div>
-                                                        <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditInstallment(service.id, installment)}>
+                                                                <Pencil className="h-3 w-3" />
+                                                            </Button>
                                                             {installment.status === 'paid' ? (
-                                                                <Badge variant="secondary" className="gap-1 text-green-700 bg-green-50 hover:bg-green-100">
-                                                                    <CheckCircle2 className="h-3 w-3" /> Pago
-                                                                </Badge>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] text-muted-foreground">
+                                                                        {installment.paymentDate ? format(parseISO(installment.paymentDate), 'dd/MM/yyyy', { locale: ptBR }) : ''}
+                                                                    </span>
+                                                                    <Badge variant="secondary" className="gap-1 text-green-700 bg-green-50 hover:bg-green-100">
+                                                                        <CheckCircle2 className="h-3 w-3" /> Pago
+                                                                    </Badge>
+                                                                </div>
                                                             ) : (
                                                                 <Button size="sm" variant="ghost" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => handlePayInstallment(service, installment)}>
                                                                     Registrar Pagamento
                                                                 </Button>
                                                             )}
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteInstallment(service, installment.id)}>
+                                                                <Trash2 className="h-3 w-3" />
+                                                            </Button>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -323,6 +422,39 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                     );
                 })}
             </Accordion>
+
+            <Dialog open={isEditInstallmentOpen} onOpenChange={setIsEditInstallmentOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Editar Parcela</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Data de Vencimento</Label>
+                            <Input
+                                type="date"
+                                value={editInstallmentData.dueDate}
+                                onChange={(e) => setEditInstallmentData({ ...editInstallmentData, dueDate: e.target.value })}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Status</Label>
+                            <Select
+                                value={editInstallmentData.status}
+                                onValueChange={(val: 'pending' | 'paid' | 'overdue') => setEditInstallmentData({ ...editInstallmentData, status: val })}
+                            >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="pending">Pendente</SelectItem>
+                                    <SelectItem value="paid">Pago</SelectItem>
+                                    <SelectItem value="overdue">Atrasado</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button onClick={handleSaveInstallmentEdit} className="w-full">Salvar Alterações</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

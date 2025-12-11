@@ -17,7 +17,7 @@ import { ptBR } from 'date-fns/locale';
 export default function ClientDetails() {
     const { clientId } = useParams();
     const navigate = useNavigate();
-    const { clients, transactions, activities, updateClient } = useBusiness();
+    const { clients, transactions, activities, updateClient, purchasedServices } = useBusiness();
     const terms = useTerminology();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,6 +34,14 @@ export default function ClientDetails() {
 
     const clientTransactions = transactions.filter(t => t.clientId === clientId);
     const clientActivities = activities.filter(a => a.clientId === clientId);
+    
+    const clientServices = purchasedServices.filter(s => s.clientId === clientId);
+    const totalContractedValue = clientServices.reduce((acc, s) => {
+        if (s.installments && s.installments.length > 0) {
+            return acc + s.installments.reduce((sum, i) => sum + i.value, 0);
+        }
+        return acc + (s.type === 'one-time' ? s.value : 0);
+    }, 0);
 
     const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -113,7 +121,7 @@ export default function ClientDetails() {
             </div>
 
             {/* Financial Stats */}
-            <ClientFinancialCard transactions={clientTransactions} />
+            <ClientFinancialCard transactions={clientTransactions} totalContractedValue={totalContractedValue} />
 
             {/* Main Content Tabs */}
             <Tabs defaultValue="projects" className="space-y-4">

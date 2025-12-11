@@ -5,10 +5,35 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CurrencyInput } from '@/components/ui/currency-input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { useBusiness } from '@/contexts/BusinessContext';
 import { useTerminology } from '@/hooks/useTerminology';
 import { format, parseISO } from 'date-fns';
@@ -18,7 +43,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 export default function Clientes() {
-  const { clients, services, addClient, updateClient, deleteClient } = useBusiness();
+  const { clients, services, addClient, updateClient, deleteClient, purchasedServices } = useBusiness();
   const terms = useTerminology();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,11 +116,21 @@ export default function Clientes() {
   };
 
   const handleEdit = (client: typeof clients[0]) => {
+    // Sync services from PurchasedServices
+    const clientPurchasedServices = purchasedServices
+      .filter(s => s.clientId === client.id)
+      .map(s => s.serviceName);
+    
+    const allServices = Array.from(new Set([
+      ...(client.services || [client.service]),
+      ...clientPurchasedServices
+    ])).filter(Boolean);
+
     setFormData({
       name: client.name,
       email: client.email || '',
       phone: client.phone,
-      services: client.services || [client.service],
+      services: allServices,
       totalValue: client.totalValue,
       purchaseDate: client.purchaseDate,
       isRecurring: client.isRecurring,
@@ -249,23 +284,10 @@ export default function Clientes() {
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Serviço Recorrente</Label>
-                      <p className="text-xs text-muted-foreground">Ative se for uma mensalidade</p>
+                      <p className="text-xs text-muted-foreground">Esta opção foi movida para os detalhes do serviço.</p>
                     </div>
-                    <Switch
-                      checked={formData.isRecurring}
-                      onCheckedChange={(checked) => setFormData({ ...formData, isRecurring: checked })}
-                    />
+                    {/* Switch removed as requested */}
                   </div>
-                  {formData.isRecurring && (
-                    <div className="space-y-2">
-                      <Label>Valor da Mensalidade</Label>
-                      <CurrencyInput
-                        value={formData.monthlyValue}
-                        onChange={(value) => setFormData({ ...formData, monthlyValue: value })}
-                        placeholder="0"
-                      />
-                    </div>
-                  )}
                 </div>
                 <Button onClick={handleSubmit} className="w-full">
                   {editingClient ? 'Salvar Alterações' : `Adicionar ${terms.client}`}
@@ -284,59 +306,59 @@ export default function Clientes() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{terms.client}</TableHead>
-                <TableHead>{terms.service}</TableHead>
-                <TableHead>Valor Total</TableHead>
-                <TableHead>Valor Pago</TableHead>
-                <TableHead>Data</TableHead>
+                <TableHead className="w-[200px]">Nome</TableHead>
+                <TableHead className="w-[150px]">Telefone</TableHead>
+                <TableHead className="hidden lg:table-cell w-[200px]">E-mail</TableHead>
+                <TableHead className="hidden sm:table-cell">Valor Pago</TableHead>
+                <TableHead className="hidden md:table-cell">Data</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredClients.map((client) => {
-                const clientServices = useBusiness().purchasedServices.filter(s => s.clientId === client.id);
-                const clientDealsValue = clientServices.reduce((acc, s) => acc + s.value, 0);
-                // Fallback to client.totalValue if no services found (backward compatibility)
-                const displayTotalValue = clientServices.length > 0 ? clientDealsValue : client.totalValue;
-
                 const clientTransactions = useBusiness().transactions.filter(t => t.clientId === client.id && t.status === 'paid');
                 const paidValue = clientTransactions.reduce((acc, t) => acc + t.amount, 0);
 
                 return (
                   <TableRow key={client.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{client.name}</p>
-                        <p className="text-sm text-muted-foreground">{client.email || 'Sem email'}</p>
-                      </div>
+                    <TableCell className="max-w-[200px]">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="font-medium truncate cursor-default">{client.name}</p>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{client.name}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        {client.services && client.services.length > 1 ? (
-                          <>
-                            <span className="text-sm">{client.services[0]}</span>
-                            <Badge variant="outline" className="w-fit text-xs">
-                              +{client.services.length - 1} mais
-                            </Badge>
-                          </>
-                        ) : (
-                          <span className="text-sm">{client.service}</span>
-                        )}
-                        {client.isRecurring && (
-                          <span className="text-xs text-muted-foreground">
-                            Mensalidade: R$ {(client.monthlyValue || 0).toLocaleString('pt-BR')}
-                          </span>
-                        )}
-                      </div>
+                    <TableCell className="max-w-[150px]">
+                      <span className="text-sm truncate block">{client.phone || '-'}</span>
                     </TableCell>
-                    <TableCell>R$ {displayTotalValue.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell>
-                      <span className="text-green-600 font-medium">
+                    <TableCell className="hidden lg:table-cell max-w-[200px]">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-sm text-muted-foreground truncate block cursor-default">
+                              {client.email || '-'}
+                            </span>
+                          </TooltipTrigger>
+                          {client.email && (
+                            <TooltipContent>
+                              <p>{client.email}</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <span className="text-green-600 font-medium whitespace-nowrap">
                         R$ {paidValue.toLocaleString('pt-BR')}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell whitespace-nowrap">
                       {format(parseISO(client.purchaseDate), 'dd/MM/yyyy', { locale: ptBR })}
                     </TableCell>
                     <TableCell>

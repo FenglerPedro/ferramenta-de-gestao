@@ -4,6 +4,7 @@ export interface Installment {
   dueDate: string; // ISO date
   value: number;
   status: 'pending' | 'paid' | 'overdue';
+  paymentDate?: string; // Date when payment was made
   transactionId?: string;
   number: number; // 1, 2, 3...
 }

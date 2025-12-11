@@ -23,14 +23,23 @@ import { HistoryViews } from '@/components/crm/HistoryViews';
 import { PipelineSettings } from '@/components/settings/PipelineSettings';
 
 export default function CRM() {
-    const { deals, pipelineStages, addDeal, updateDeal, deleteDeal, moveDeal } = useBusiness();
+    const { deals, pipelineStages, addDeal, updateDeal, deleteDeal, moveDeal, services } = useBusiness();
     const terms = useTerminology();
     const [searchTerm, setSearchTerm] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingDeal, setEditingDeal] = useState<string | null>(null);
     const [draggedDeal, setDraggedDeal] = useState<string | null>(null);
     // closed and lost are always shown separately; kanban shows other stages
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        clientName: string;
+        clientEmail: string;
+        clientPhone: string;
+        title: string;
+        value: number;
+        stageId: string;
+        notes: string;
+        type: 'one-time' | 'recurring';
+    }>({
         clientName: '',
         clientEmail: '',
         clientPhone: '',
@@ -38,6 +47,7 @@ export default function CRM() {
         value: 0,
         stageId: pipelineStages[0]?.id || 'lead',
         notes: '',
+        type: 'one-time',
     });
 
     const sortedStages = [...pipelineStages].sort((a, b) => a.order - b.order);
@@ -64,6 +74,7 @@ export default function CRM() {
             value: 0,
             stageId: pipelineStages[0]?.id || 'lead',
             notes: '',
+            type: 'one-time',
         });
         setEditingDeal(null);
     };
@@ -95,6 +106,7 @@ export default function CRM() {
             value: deal.value,
             stageId: deal.stageId,
             notes: deal.notes || '',
+            type: deal.type || 'one-time',
         });
         setEditingDeal(deal.id);
         setIsDialogOpen(true);
@@ -207,6 +219,52 @@ export default function CRM() {
                                         />
                                     </div>
                                     <div className="space-y-2">
+                                        <Label>Tipo de Serviço</Label>
+                                        <Select
+                                            value={formData.type}
+                                            onValueChange={(value: 'one-time' | 'recurring') => setFormData({ ...formData, type: value })}
+                                        >
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="one-time">Serviço Pontual</SelectItem>
+                                                <SelectItem value="recurring">Serviço Recorrente</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Selecionar de Lista (Opcional)</Label>
+                                    <Select onValueChange={(serviceId) => {
+                                        const service = services.find(s => s.id === serviceId);
+                                        if (service) {
+                                            setFormData({
+                                                ...formData,
+                                                title: service.name,
+                                                value: service.price,
+                                                type: service.isRecurring ? 'recurring' : 'one-time'
+                                            });
+                                        }
+                                    }}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecione um serviço..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {services.map((service) => (
+                                                <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Serviço *</Label>
+                                        <Input
+                                            placeholder="Nome do serviço..."
+                                            value={formData.title}
+                                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
                                         <Label>Valor (R$)</Label>
                                         <Input
                                             type="number"
@@ -215,14 +273,6 @@ export default function CRM() {
                                             onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
                                         />
                                     </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Título do {terms.deal} *</Label>
-                                    <Input
-                                        placeholder="Ex: Consultoria Mensal"
-                                        value={formData.title}
-                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Estágio</Label>

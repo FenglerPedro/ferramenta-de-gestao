@@ -6,29 +6,43 @@ import { ptBR } from 'date-fns/locale';
 
 interface ClientFinancialCardProps {
     transactions: Transaction[];
+    totalContractedValue?: number;
 }
 
-export function ClientFinancialCard({ transactions }: ClientFinancialCardProps) {
+export function ClientFinancialCard({ transactions, totalContractedValue = 0 }: ClientFinancialCardProps) {
     const paidTransactions = transactions.filter(t => t.status === 'paid');
 
-    const totalValue = paidTransactions.reduce((acc, t) => acc + t.amount, 0);
-    const avgTicket = paidTransactions.length > 0 ? totalValue / paidTransactions.length : 0;
+    const totalPaid = paidTransactions.reduce((acc, t) => acc + t.amount, 0);
+    const avgTicket = paidTransactions.length > 0 ? totalPaid / paidTransactions.length : 0;
 
     const lastTransaction = paidTransactions.length > 0
         ? paidTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
         : null;
 
     return (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Gasto</CardTitle>
+                    <CardTitle className="text-sm font-medium">Total Contratado</CardTitle>
                     <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">R$ {totalValue.toLocaleString('pt-BR')}</div>
+                    <div className="text-2xl font-bold">R$ {totalContractedValue.toLocaleString('pt-BR')}</div>
                     <p className="text-xs text-muted-foreground">
-                        em {paidTransactions.length} compras
+                        em serviços
+                    </p>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Pago</CardTitle>
+                    <DollarSign className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-green-600">R$ {totalPaid.toLocaleString('pt-BR')}</div>
+                    <p className="text-xs text-muted-foreground">
+                        em {paidTransactions.length} pagamentos
                     </p>
                 </CardContent>
             </Card>

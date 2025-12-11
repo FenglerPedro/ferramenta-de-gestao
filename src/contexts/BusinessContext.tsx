@@ -49,6 +49,10 @@ interface BusinessContextType {
   updatePurchasedService: (id: string, service: Partial<PurchasedService>) => void;
   deletePurchasedService: (id: string) => void;
   updateSettings: (settings: Partial<BusinessSettings>) => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 const STORAGE_KEY = 'gestao_business_data';
@@ -137,6 +141,70 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const [purchasedServices, setPurchasedServices] = useState<PurchasedService[]>(storedData?.purchasedServices ?? []);
   const [settings, setSettings] = useState<BusinessSettings>(storedData?.settings ?? defaultSettings);
 
+  // Undo/Redo State
+  const [history, setHistory] = useState<StoredData[]>([]);
+  const [future, setFuture] = useState<StoredData[]>([]);
+
+  const saveCheckpoint = () => {
+    const currentData: StoredData = {
+      clients, services, meetings, deals, pipelineStages, projectTasks,
+      projectStages, transactions, activities, purchasedServices, settings
+    };
+    setHistory(prev => [...prev, currentData]);
+    setFuture([]);
+  };
+
+  const undo = () => {
+    if (history.length === 0) return;
+    const previous = history[history.length - 1];
+    const newHistory = history.slice(0, -1);
+    
+    // Save current state to future
+    const currentData: StoredData = {
+      clients, services, meetings, deals, pipelineStages, projectTasks,
+      projectStages, transactions, activities, purchasedServices, settings
+    };
+    setFuture(prev => [currentData, ...prev]);
+    setHistory(newHistory);
+
+    setClients(previous.clients);
+    setServices(previous.services);
+    setMeetings(previous.meetings);
+    setDeals(previous.deals);
+    setPipelineStages(previous.pipelineStages);
+    setProjectTasks(previous.projectTasks);
+    setProjectStages(previous.projectStages);
+    setTransactions(previous.transactions);
+    setActivities(previous.activities);
+    setPurchasedServices(previous.purchasedServices);
+    setSettings(previous.settings);
+  };
+
+  const redo = () => {
+    if (future.length === 0) return;
+    const next = future[0];
+    const newFuture = future.slice(1);
+
+    const currentData: StoredData = {
+      clients, services, meetings, deals, pipelineStages, projectTasks,
+      projectStages, transactions, activities, purchasedServices, settings
+    };
+    setHistory(prev => [...prev, currentData]);
+    setFuture(newFuture);
+
+    setClients(next.clients);
+    setServices(next.services);
+    setMeetings(next.meetings);
+    setDeals(next.deals);
+    setPipelineStages(next.pipelineStages);
+    setProjectTasks(next.projectTasks);
+    setProjectStages(next.projectStages);
+    setTransactions(next.transactions);
+    setActivities(next.activities);
+    setPurchasedServices(next.purchasedServices);
+    setSettings(next.settings);
+  };
+
   // Salvar no localStorage sempre que os dados mudarem
   useEffect(() => {
     saveToStorage({ clients, services, meetings, deals, pipelineStages, projectTasks, projectStages, transactions, activities, purchasedServices, settings });
@@ -170,60 +238,73 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
 
   // Client functions
   const addClient = (client: Omit<Client, 'id'>) => {
+    saveCheckpoint();
     setClients([...clients, { ...client, id: generateId() }]);
   };
 
   const updateClient = (id: string, client: Partial<Client>) => {
+    saveCheckpoint();
     setClients(clients.map(c => c.id === id ? { ...c, ...client } : c));
   };
 
   const deleteClient = (id: string) => {
+    saveCheckpoint();
     setClients(clients.filter(c => c.id !== id));
   };
 
   // Service functions
   const addService = (service: Omit<Service, 'id'>) => {
+    saveCheckpoint();
     setServices([...services, { ...service, id: generateId() }]);
   };
 
   const updateService = (id: string, service: Partial<Service>) => {
+    saveCheckpoint();
     setServices(services.map(s => s.id === id ? { ...s, ...service } : s));
   };
 
   const deleteService = (id: string) => {
+    saveCheckpoint();
     setServices(services.filter(s => s.id !== id));
   };
 
   // Meeting functions
   const addMeeting = (meeting: Omit<Meeting, 'id'>) => {
+    saveCheckpoint();
     setMeetings([...meetings, { ...meeting, id: generateId() }]);
   };
 
   const updateMeeting = (id: string, meeting: Partial<Meeting>) => {
+    saveCheckpoint();
     setMeetings(meetings.map(m => m.id === id ? { ...m, ...meeting } : m));
   };
 
   const deleteMeeting = (id: string) => {
+    saveCheckpoint();
     setMeetings(meetings.filter(m => m.id !== id));
   };
 
   // Deal functions
   const addDeal = (deal: Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>) => {
+    saveCheckpoint();
     const now = new Date().toISOString().split('T')[0];
     setDeals([...deals, { ...deal, id: generateId(), createdAt: now, updatedAt: now }]);
   };
 
   const updateDeal = (id: string, deal: Partial<Deal>) => {
+    saveCheckpoint();
     const now = new Date().toISOString().split('T')[0];
     setDeals(deals.map(d => d.id === id ? { ...d, ...deal, updatedAt: now } : d));
   };
 
   const deleteDeal = (id: string) => {
+    saveCheckpoint();
     setDeals(deals.filter(d => d.id !== id));
   };
 
 
   const moveDeal = (dealId: string, newStageId: string) => {
+    saveCheckpoint();
     const now = new Date().toISOString().split('T')[0];
     const deal = deals.find(d => d.id === dealId);
     const newStage = pipelineStages.find(s => s.id === newStageId);
@@ -302,15 +383,18 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
 
   // Pipeline Stage functions
   const addPipelineStage = (stage: Omit<PipelineStage, 'id' | 'order'>) => {
+    saveCheckpoint();
     const maxOrder = Math.max(...pipelineStages.map(s => s.order), -1);
     setPipelineStages([...pipelineStages, { ...stage, id: generateId(), order: maxOrder + 1 }]);
   };
 
   const updatePipelineStage = (id: string, stage: Partial<PipelineStage>) => {
+    saveCheckpoint();
     setPipelineStages(pipelineStages.map(s => s.id === id ? { ...s, ...stage } : s));
   };
 
   const deletePipelineStage = (id: string) => {
+    saveCheckpoint();
     const remainingStages = pipelineStages.filter(s => s.id !== id);
     if (remainingStages.length > 0) {
       const firstStage = remainingStages.sort((a, b) => a.order - b.order)[0];
@@ -320,40 +404,48 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   };
 
   const reorderPipelineStages = (newStages: PipelineStage[]) => {
+    saveCheckpoint();
     setPipelineStages(newStages.map((s, index) => ({ ...s, order: index })));
   };
 
   // Project Task functions
   const addProjectTask = (task: Omit<ProjectTask, 'id' | 'createdAt' | 'updatedAt'>) => {
+    saveCheckpoint();
     const now = new Date().toISOString().split('T')[0];
     setProjectTasks([...projectTasks, { ...task, id: generateId(), createdAt: now, updatedAt: now }]);
   };
 
   const updateProjectTask = (id: string, task: Partial<ProjectTask>) => {
+    saveCheckpoint();
     const now = new Date().toISOString().split('T')[0];
     setProjectTasks(projectTasks.map(t => t.id === id ? { ...t, ...task, updatedAt: now } : t));
   };
 
   const deleteProjectTask = (id: string) => {
+    saveCheckpoint();
     setProjectTasks(projectTasks.filter(t => t.id !== id));
   };
 
   const moveProjectTask = (taskId: string, newStageId: string) => {
+    saveCheckpoint();
     const now = new Date().toISOString().split('T')[0];
     setProjectTasks(projectTasks.map(t => t.id === taskId ? { ...t, stageId: newStageId, updatedAt: now } : t));
   };
 
   // Project Stage functions
   const addProjectStage = (stage: Omit<ProjectStage, 'id' | 'order'>) => {
+    saveCheckpoint();
     const maxOrder = Math.max(...projectStages.map(s => s.order), -1);
     setProjectStages([...projectStages, { ...stage, id: generateId(), order: maxOrder + 1 }]);
   };
 
   const updateProjectStage = (id: string, stage: Partial<ProjectStage>) => {
+    saveCheckpoint();
     setProjectStages(projectStages.map(s => s.id === id ? { ...s, ...stage } : s));
   };
 
   const deleteProjectStage = (id: string) => {
+    saveCheckpoint();
     const remainingStages = projectStages.filter(s => s.id !== id);
     if (remainingStages.length > 0) {
       const firstStage = remainingStages.sort((a, b) => a.order - b.order)[0];
@@ -363,47 +455,58 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   };
 
   const reorderProjectStages = (newStages: ProjectStage[]) => {
+    saveCheckpoint();
     setProjectStages(newStages.map((s, index) => ({ ...s, order: index })));
   };
 
   const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
+    saveCheckpoint();
     setTransactions([...transactions, { ...transaction, id: generateId() }]);
   };
 
   const updateTransaction = (id: string, transaction: Partial<Transaction>) => {
+    saveCheckpoint();
     setTransactions(transactions.map(t => t.id === id ? { ...t, ...transaction } : t));
   };
 
   const deleteTransaction = (id: string) => {
+    saveCheckpoint();
     setTransactions(transactions.filter(t => t.id !== id));
   };
 
   // Activity functions
   const addActivity = (activity: Omit<ClientActivity, 'id'>) => {
+    saveCheckpoint();
     setActivities([...activities, { ...activity, id: generateId() }]);
   };
 
   const updateActivity = (id: string, activity: Partial<ClientActivity>) => {
+    saveCheckpoint();
     setActivities(activities.map(a => a.id === id ? { ...a, ...activity } : a));
   };
 
   const deleteActivity = (id: string) => {
+    saveCheckpoint();
     setActivities(activities.filter(a => a.id !== id));
   };
 
   const addPurchasedService = (service: Omit<PurchasedService, 'id'>) => {
+    saveCheckpoint();
     setPurchasedServices([...purchasedServices, { ...service, id: generateId() }]);
   };
 
   const updatePurchasedService = (id: string, service: Partial<PurchasedService>) => {
+    saveCheckpoint();
     setPurchasedServices(purchasedServices.map(s => s.id === id ? { ...s, ...service } : s));
   };
 
   const deletePurchasedService = (id: string) => {
+    saveCheckpoint();
     setPurchasedServices(purchasedServices.filter(s => s.id !== id));
   };
 
   const updateSettings = (newSettings: Partial<BusinessSettings>) => {
+    saveCheckpoint();
     setSettings({ ...settings, ...newSettings });
   };
 
@@ -456,6 +559,10 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         updatePurchasedService,
         deletePurchasedService,
         updateSettings,
+        undo,
+        redo,
+        canUndo: history.length > 0,
+        canRedo: future.length > 0,
       }}
     >
       {children}
