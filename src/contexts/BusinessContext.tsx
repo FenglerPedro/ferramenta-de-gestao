@@ -317,10 +317,18 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
 
   const deleteClient = async (id: string) => {
     try {
-      await supabase.from('clients').delete().eq('id', id);
+      const { error } = await supabase.from('clients').delete().eq('id', id);
+      if (error) {
+        console.error('Erro ao excluir cliente:', error);
+        toast.error('Erro ao remover cliente. Verifique sua conexão.');
+        return;
+      }
       setClients(prev => prev.filter(c => c.id !== id));
       toast.success('Cliente removido.');
-    } catch (e) { toast.error('Erro ao remover.'); }
+    } catch (e) {
+      console.error('Erro ao remover:', e);
+      toast.error('Erro ao remover.');
+    }
   };
 
   const addService = async (service: Omit<Service, 'id'>) => {
@@ -372,6 +380,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         end_time: endDateTime.toISOString(),
         client_name: meeting.clientName,
         client_email: meeting.clientEmail,
+        client_phone: meeting.clientPhone,
         notes: meeting.notes
       }]).select().single();
       if (error) throw error;

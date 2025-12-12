@@ -18,7 +18,7 @@ export default function BookingPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [step, setStep] = useState<'select' | 'form' | 'success'>('select');
-  const [formData, setFormData] = useState({ name: '', email: '', notes: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', notes: '' });
 
   // Validate if a date is generally available (not checking specific times yet)
   const isDateAvailable = (date: Date) => {
@@ -127,12 +127,12 @@ export default function BookingPage() {
   };
 
   const handleSubmit = () => {
-    if (!formData.name || !formData.email) {
-      toast.error('Por favor, preencha todos os campos.');
+    if (!formData.name) {
+      toast.error('Por favor, preencha seu nome.');
       return;
     }
 
-    if (!validateEmail(formData.email)) {
+    if (formData.email && !validateEmail(formData.email)) {
       toast.error('Email inválido');
       return;
     }
@@ -140,8 +140,10 @@ export default function BookingPage() {
     if (!selectedDate || !selectedTime) return;
 
     addMeeting({
+      title: `Reunião - ${formData.name}`,
       clientName: formData.name,
       clientEmail: formData.email,
+      clientPhone: formData.phone,
       date: format(selectedDate, 'yyyy-MM-dd'),
       time: selectedTime,
       duration: settings.meetingDuration,
@@ -154,10 +156,10 @@ export default function BookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-4xl shadow-xl border-none overflow-hidden h-[90vh] max-h-[700px] flex flex-col md:flex-row">
+    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-2 sm:p-4">
+      <Card className="w-full max-w-4xl shadow-xl border-none overflow-hidden h-[95vh] sm:h-[90vh] max-h-[700px] flex flex-col md:flex-row">
         {/* Sidebar / Info */}
-        <div className="w-full md:w-1/3 bg-white border-r p-6 flex flex-col h-full overflow-y-auto">
+        <div className="w-full md:w-1/3 bg-white border-b md:border-b-0 md:border-r p-4 sm:p-6 flex flex-col md:h-full overflow-y-auto">
           <div className="mb-6 flex flex-col items-center text-center">
             <Avatar className="h-20 w-20 mb-4 shadow-sm">
               {settings.logo ? (
@@ -278,7 +280,18 @@ export default function BookingPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="phone">Telefone</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="(11) 99999-9999"
+                    maxLength={15}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email (opcional)</Label>
                   <Input
                     id="email"
                     type="email"
@@ -332,7 +345,7 @@ export default function BookingPage() {
 
               <Button variant="outline" className="mt-8" onClick={() => {
                 setStep('select');
-                setFormData({ name: '', email: '', notes: '' });
+                setFormData({ name: '', email: '', phone: '', notes: '' });
                 setSelectedTime(null);
               }}>
                 Agendar Outra Reunião

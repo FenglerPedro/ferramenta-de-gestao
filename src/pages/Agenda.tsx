@@ -23,6 +23,7 @@ export default function Agenda() {
   const [newMeeting, setNewMeeting] = useState({
     clientName: '',
     clientEmail: '',
+    clientPhone: '',
     time: '09:00',
     duration: 60,
   });
@@ -90,12 +91,12 @@ export default function Agenda() {
   };
 
   const handleAddMeeting = () => {
-    if (!newMeeting.clientName || !newMeeting.clientEmail) {
-      toast.error('Preencha todos os campos');
+    if (!newMeeting.clientName) {
+      toast.error('Preencha o nome do cliente');
       return;
     }
 
-    if (!validateEmail(newMeeting.clientEmail)) {
+    if (newMeeting.clientEmail && !validateEmail(newMeeting.clientEmail)) {
       toast.error('Email inválido');
       return;
     }
@@ -113,7 +114,7 @@ export default function Agenda() {
       status: 'scheduled',
     });
 
-    setNewMeeting({ clientName: '', clientEmail: '', time: '09:00', duration: 60 });
+    setNewMeeting({ clientName: '', clientEmail: '', clientPhone: '', time: '09:00', duration: 60 });
     setIsDialogOpen(false);
     toast.success(`${terms.meeting} agendada com sucesso!`);
   };
@@ -168,7 +169,7 @@ export default function Agenda() {
     setSelectedDate(date);
     const availableSlots = getAvailableSlots(date);
     const firstAvailable = availableSlots.length > 0 ? availableSlots[0] : settings.availableHours.start;
-    setNewMeeting({ clientName: '', clientEmail: '', time: firstAvailable, duration: 60 });
+    setNewMeeting({ clientName: '', clientEmail: '', clientPhone: '', time: firstAvailable, duration: 60 });
     setIsDialogOpen(true);
   };
 
@@ -228,7 +229,16 @@ export default function Agenda() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Email</Label>
+                <Label>Telefone</Label>
+                <Input
+                  placeholder="(11) 99999-9999"
+                  value={newMeeting.clientPhone}
+                  onChange={(e) => setNewMeeting({ ...newMeeting, clientPhone: e.target.value })}
+                  maxLength={15}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email (opcional)</Label>
                 <Input
                   type="email"
                   placeholder="email@exemplo.com"

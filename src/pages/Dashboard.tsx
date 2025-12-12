@@ -80,14 +80,28 @@ export default function Dashboard() {
   const pipelineValue = activeDealsList.reduce((acc, deal) => acc + deal.value, 0);
 
   // Encontrar estágios "fechado" ou "won" para calcular conversões
-  const closedStages = pipelineStages.filter(s =>
-    s.name.toLowerCase().includes('fechado') ||
-    s.name.toLowerCase().includes('ganho') ||
-    s.id === 'closed' ||
-    s.id === 'won'
-  );
+  const closedStageIds = new Set<string>();
+
+  // Adicionar IDs de stages existentes que são de "fechado"
+  pipelineStages.forEach(s => {
+    if (
+      s.name.toLowerCase().includes('fechado') ||
+      s.name.toLowerCase().includes('ganho') ||
+      s.id === 'closed' ||
+      s.id === 'won'
+    ) {
+      closedStageIds.add(s.id);
+    }
+  });
+
+  // Sempre incluir 'closed' e 'won' pois são drop zones fixas que não existem como stages
+  closedStageIds.add('closed');
+  closedStageIds.add('won');
+  closedStageIds.add('fechado');
+  closedStageIds.add('ganho');
+
   // Closed deals should respect the date range (e.g. "Sales this month")
-  const closedDeals = filteredDeals.filter((d) => closedStages.some((s) => s.id === d.stageId));
+  const closedDeals = filteredDeals.filter((d) => closedStageIds.has(d.stageId));
   const closedValue = closedDeals.reduce((acc, deal) => acc + deal.value, 0);
 
   return (

@@ -76,6 +76,7 @@ export interface Meeting {
   title: string;
   clientName: string;
   clientEmail: string;
+  clientPhone?: string;
   date: string;
   time: string;
   duration: number;

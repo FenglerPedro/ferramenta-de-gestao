@@ -114,12 +114,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     try {
-      await supabase
+      const { error } = await supabase
         .from('business_settings')
         .upsert({
           user_id: user.id,
           custom_theme: { current, custom }
         }, { onConflict: 'user_id' });
+
+      if (error) {
+        console.error('Error saving theme to Supabase:', error);
+        // Check if it's a column missing error
+        if (error.message?.includes('custom_theme')) {
+          console.error('A coluna custom_theme pode não existir na tabela business_settings. Execute: ALTER TABLE business_settings ADD COLUMN IF NOT EXISTS custom_theme JSONB;');
+        }
+      }
     } catch (e) {
       console.error('Error saving theme:', e);
     }
