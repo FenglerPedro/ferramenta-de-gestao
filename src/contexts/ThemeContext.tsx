@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
 
 export interface Theme {
   id: string;
@@ -157,37 +156,29 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Efeito que escuta mudanças de autenticação (login/logout) para restaurar o tema
+  // Efeito que restaura o tema ao mudar de usuário
   useEffect(() => {
-    if (!supabase) return;
+    // Quando há mudança de autenticação, restaurar o tema do localStorage
+    const savedTheme = localStorage.getItem('app-theme');
+    const savedCustomThemes = localStorage.getItem('custom-themes');
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      // Quando há mudança de autenticação, restaurar o tema do localStorage
-      const savedTheme = localStorage.getItem('app-theme');
-      const savedCustomThemes = localStorage.getItem('custom-themes');
-
-      if (savedCustomThemes) {
-        try {
-          const customThemesData = JSON.parse(savedCustomThemes);
-          setCustomThemes(customThemesData);
-        } catch {
-          console.error('Erro ao carregar temas customizados');
-        }
+    if (savedCustomThemes) {
+      try {
+        const customThemesData = JSON.parse(savedCustomThemes);
+        setCustomThemes(customThemesData);
+      } catch {
+        console.error('Erro ao carregar temas customizados');
       }
+    }
 
-      if (savedTheme) {
-        try {
-          const themeData = JSON.parse(savedTheme);
-          setCurrentTheme(themeData);
-        } catch {
-          console.error('Erro ao carregar tema salvo');
-        }
+    if (savedTheme) {
+      try {
+        const themeData = JSON.parse(savedTheme);
+        setCurrentTheme(themeData);
+      } catch {
+        console.error('Erro ao carregar tema salvo');
       }
-    });
-
-    return () => {
-      subscription?.unsubscribe();
-    };
+    }
   }, []);
 
   const applyTheme = (theme: Theme) => {
