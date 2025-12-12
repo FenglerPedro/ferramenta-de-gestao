@@ -103,30 +103,50 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const fetchData = async () => {
     if (!user) return;
     try {
-      // 1. Fetch Clients
-      const { data: clientsData, error: clientsError } = await supabase.from('clients').select('*');
-      if (clientsError) throw clientsError;
-      setClients((clientsData || []).map(c => ({
+      const [
+        clientsRes,
+        servicesRes,
+        meetingsRes,
+        dealsRes,
+        pipesRes,
+        projTasksRes,
+        projStagesRes,
+        transRes,
+        actRes,
+        purRes,
+        settingsRes
+      ] = await Promise.all([
+        supabase.from('clients').select('*'),
+        supabase.from('services').select('*'),
+        supabase.from('meetings').select('*'),
+        supabase.from('deals').select('*'),
+        supabase.from('pipeline_stages').select('*').order('order'),
+        supabase.from('project_tasks').select('*'),
+        supabase.from('project_stages').select('*').order('order'),
+        supabase.from('transactions').select('*'),
+        supabase.from('client_activities').select('*'),
+        supabase.from('purchased_services').select('*'),
+        supabase.from('business_settings').select('*').single()
+      ]);
+
+      if (clientsRes.error) throw clientsRes.error;
+      setClients(clientsRes.data?.map(c => ({
         ...c,
         purchaseDate: c.created_at,
         totalValue: c.total_value,
         sourceDealId: c.source_deal_id,
-        isRecurring: false, // Default or map if column exists
-        services: [] // Future: join with purchased_services
-      })));
+        isRecurring: false,
+        services: []
+      })) || []);
 
-      // 2. Fetch Services
-      const { data: servicesData, error: servicesError } = await supabase.from('services').select('*');
-      if (servicesError) throw servicesError;
-      setServices((servicesData || []).map(s => ({
+      if (servicesRes.error) throw servicesRes.error;
+      setServices(servicesRes.data?.map(s => ({
         ...s,
         isRecurring: s.is_recurring
-      })));
+      })) || []);
 
-      // 3. Fetch Meetings
-      const { data: meetingsData, error: meetingsError } = await supabase.from('meetings').select('*');
-      if (meetingsError) throw meetingsError;
-      setMeetings((meetingsData || []).map(m => {
+      if (meetingsRes.error) throw meetingsRes.error;
+      setMeetings(meetingsRes.data?.map(m => {
         const start = parseISO(m.start_time);
         const end = parseISO(m.end_time);
         return {
@@ -141,12 +161,10 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
           status: m.status as any,
           notes: m.notes
         };
-      }));
+      }) || []);
 
-      // 4. Fetch Deals
-      const { data: dealsData, error: dealsError } = await supabase.from('deals').select('*');
-      if (dealsError) throw dealsError;
-      setDeals((dealsData || []).map(d => ({
+      if (dealsRes.error) throw dealsRes.error;
+      setDeals(dealsRes.data?.map(d => ({
         id: d.id,
         title: d.title,
         value: d.value,
@@ -160,21 +178,17 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         notes: d.notes,
         createdAt: d.created_at,
         updatedAt: d.updated_at
-      })));
+      })) || []);
 
-      // 5. Fetch Pipeline Stages
-      const { data: pipesData, error: pipesError } = await supabase.from('pipeline_stages').select('*').order('order');
-      if (pipesError) throw pipesError;
-      if (pipesData && pipesData.length > 0) {
-        setPipelineStages(pipesData);
+      if (pipesRes.error) throw pipesRes.error;
+      if (pipesRes.data && pipesRes.data.length > 0) {
+        setPipelineStages(pipesRes.data);
       } else {
         setPipelineStages(defaultPipelineStages);
       }
 
-      // 6. Fetch Project Tasks
-      const { data: projTasksData, error: projTasksError } = await supabase.from('project_tasks').select('*');
-      if (projTasksError) throw projTasksError;
-      setProjectTasks((projTasksData || []).map(t => ({
+      if (projTasksRes.error) throw projTasksRes.error;
+      setProjectTasks(projTasksRes.data?.map(t => ({
         id: t.id,
         title: t.title,
         description: t.description,
@@ -185,21 +199,17 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         dueDate: t.due_date,
         createdAt: t.created_at,
         updatedAt: t.updated_at
-      })));
+      })) || []);
 
-      // 7. Fetch Project Stages
-      const { data: projStagesData, error: projStagesError } = await supabase.from('project_stages').select('*').order('order');
-      if (projStagesError) throw projStagesError;
-      if (projStagesData && projStagesData.length > 0) {
-        setProjectStages(projStagesData);
+      if (projStagesRes.error) throw projStagesRes.error;
+      if (projStagesRes.data && projStagesRes.data.length > 0) {
+        setProjectStages(projStagesRes.data);
       } else {
         setProjectStages(defaultProjectStages);
       }
 
-      // 8. Fetch Transactions
-      const { data: transData, error: transError } = await supabase.from('transactions').select('*');
-      if (transError) throw transError;
-      setTransactions((transData || []).map(t => ({
+      if (transRes.error) throw transRes.error;
+      setTransactions(transRes.data?.map(t => ({
         id: t.id,
         clientId: t.client_id,
         description: t.description,
@@ -209,20 +219,16 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         paymentMethod: t.payment_method as any,
         serviceId: t.service_id,
         installmentId: t.installment_id
-      })));
+      })) || []);
 
-      // 9. Fetch Activities
-      const { data: actData, error: actError } = await supabase.from('client_activities').select('*');
-      if (actError) throw actError;
-      setActivities((actData || []).map(a => ({
+      if (actRes.error) throw actRes.error;
+      setActivities(actRes.data?.map(a => ({
         ...a,
         clientId: a.client_id
-      })));
+      })) || []);
 
-      // 10. Fetch Purchased Services
-      const { data: purData, error: purError } = await supabase.from('purchased_services').select('*');
-      if (purError) throw purError;
-      setPurchasedServices((purData || []).map(p => ({
+      if (purRes.error) throw purRes.error;
+      setPurchasedServices(purRes.data?.map(p => ({
         id: p.id,
         clientId: p.client_id,
         serviceName: p.service_name || '',
@@ -231,11 +237,10 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         status: p.status as any,
         startDate: p.purchase_date,
         installments: p.installments as Installment[] || []
-      })));
+      })) || []);
 
-      // 11. Settings
-      const { data: settingsData, error: settingsError } = await supabase.from('business_settings').select('*').single();
-      if (!settingsError && settingsData) {
+      if (!settingsRes.error && settingsRes.data) {
+        const settingsData = settingsRes.data;
         setSettings({
           businessName: settingsData.business_name || defaultSettings.businessName,
           ownerName: settingsData.owner_name || defaultSettings.ownerName,
@@ -246,7 +251,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
           availableDays: settingsData.available_days || defaultSettings.availableDays,
           daySchedules: settingsData.day_schedules || defaultSettings.daySchedules,
           blockedDates: settingsData.blocked_dates || defaultSettings.blockedDates,
-          blockedTimeSlots: settingsData.blocked_time_slots || defaultSettings.blockedTimeSlots
+          blockedTimeSlots: settingsData.blocked_time_slots || defaultSettings.blockedTimeSlots,
+          logo: settingsData.logo,
+          photo: settingsData.photo
         });
       }
 
@@ -294,6 +301,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       if (updates.email) dbUpdates.email = updates.email;
       if (updates.phone) dbUpdates.phone = updates.phone;
       if (updates.totalValue !== undefined) dbUpdates.total_value = updates.totalValue;
+      if (updates.photo !== undefined) dbUpdates.photo = updates.photo;
+      if ((updates as any).company !== undefined) dbUpdates.company = (updates as any).company;
+      if ((updates as any).notes !== undefined) dbUpdates.notes = (updates as any).notes;
 
       const { error } = await supabase.from('clients').update(dbUpdates).eq('id', id);
       if (error) throw error;
@@ -367,7 +377,10 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       setMeetings(prev => [...prev, { ...meeting, id: data.id }]);
       toast.success('Agendamento criado!');
-    } catch (e) { toast.error('Erro ao agendar.'); }
+    } catch (e) {
+      console.error('Error adding meeting:', e);
+      toast.error('Erro ao agendar. Verifique os dados.');
+    }
   };
 
   const updateMeeting = async (id: string, meeting: Partial<Meeting>) => {
@@ -429,9 +442,108 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   };
 
   const moveDeal = async (dealId: string, newStageId: string) => {
-    // Optimistic
+    if (!user) return;
+
+    const deal = deals.find(d => d.id === dealId);
+    if (!deal) return;
+
+    // Optimistic update
     setDeals(prev => prev.map(d => d.id === dealId ? { ...d, stageId: newStageId } : d));
     await supabase.from('deals').update({ pipeline_stage_id: newStageId }).eq('id', dealId);
+
+    // If moved to "closed", create client and purchased service
+    if (newStageId === 'closed') {
+      try {
+        // 1. Create Client
+        const { data: clientData, error: clientError } = await supabase.from('clients').insert([{
+          user_id: user.id,
+          name: deal.clientName,
+          email: deal.clientEmail,
+          phone: deal.clientPhone,
+          total_value: deal.value,
+          source_deal_id: deal.id
+        }]).select().single();
+
+        if (clientError) {
+          console.error('Error creating client:', clientError);
+          toast.error('Erro ao criar cliente automaticamente.');
+          return;
+        }
+
+        // Update local state
+        const newClient = {
+          id: clientData.id,
+          name: deal.clientName,
+          email: deal.clientEmail,
+          phone: deal.clientPhone,
+          totalValue: deal.value,
+          sourceDealId: deal.id,
+          purchaseDate: new Date().toISOString(),
+          services: [],
+          service: '',
+          photo: '',
+          isRecurring: deal.type === 'recurring',
+          status: 'active' as const
+        };
+        setClients(prev => [...prev, newClient as any]);
+
+        // 2. Create Purchased Service
+        const { data: psData, error: psError } = await supabase.from('purchased_services').insert([{
+          user_id: user.id,
+          client_id: clientData.id,
+          service_name: deal.title,
+          type: deal.type,
+          value: deal.value,
+          status: 'active',
+          purchase_date: new Date().toISOString(),
+          installments: []
+        }]).select().single();
+
+        if (!psError && psData) {
+          setPurchasedServices(prev => [...prev, {
+            id: psData.id,
+            clientId: clientData.id,
+            serviceName: deal.title,
+            type: deal.type as any,
+            value: deal.value,
+            status: 'active',
+            startDate: new Date().toISOString(),
+            installments: []
+          }]);
+        }
+
+        // 3. Create Transaction (Pending) for Revenue Tracking
+        const { data: transData, error: transError } = await supabase.from('transactions').insert([{
+          user_id: user.id,
+          client_id: clientData.id,
+          description: `Venda: ${deal.title}`,
+          amount: deal.value,
+          type: 'income',
+          status: 'completed', // Auto-complete for now as per user expectation of "Faturamento" update
+          date: new Date().toISOString(),
+          payment_method: 'other',
+          service_id: psData?.id
+        }]).select().single();
+
+        if (!transError && transData) {
+          setTransactions(prev => [...prev, {
+            id: transData.id,
+            clientId: clientData.id,
+            description: transData.description,
+            amount: transData.amount,
+            status: transData.status as any,
+            date: transData.date,
+            paymentMethod: transData.payment_method as any,
+            serviceId: transData.service_id,
+            installmentId: transData.installment_id
+          }]);
+        }
+
+        toast.success(`✅ ${deal.clientName} cadastrado como cliente e venda registrada!`);
+      } catch (e) {
+        console.error('Error in moveDeal closed flow:', e);
+      }
+    }
   };
 
   const deleteDeal = async (id: string) => {
@@ -456,13 +568,16 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
         client_id: task.clientId,
         project_stage_id: task.stageId,
         assigned_to: task.assignedTo,
-        due_date: task.dueDate,
+        due_date: task.dueDate || null, // Handle empty string
         priority: task.priority || 'medium'
       }]).select().single();
       if (error) throw error;
       setProjectTasks(prev => [...prev, { ...task, id: data.id, createdAt: data.created_at, updatedAt: data.updated_at } as ProjectTask]);
       toast.success('Tarefa criada!');
-    } catch (e) { toast.error('Erro ao criar tarefa.'); }
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao criar tarefa. Verifique os dados.');
+    }
   };
 
   const updateProjectTask = async (id: string, task: Partial<ProjectTask>) => {
@@ -580,9 +695,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       available_hours: updated.availableHours,
       available_days: updated.availableDays,
       day_schedules: updated.daySchedules,
-      meeting_duration: updated.meetingDuration,
-      blocked_dates: updated.blockedDates,
-      blocked_time_slots: updated.blockedTimeSlots
+      blocked_time_slots: updated.blockedTimeSlots,
+      logo: updated.logo,
+      photo: updated.photo
     };
 
     // Upsert
@@ -590,8 +705,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   };
 
   // Undo/Redo Stubs
-  const undo = () => { };
-  const redo = () => { };
+  const undo = () => { toast.info('Funcionalidade de desfazer em desenvolvimento.'); };
+  const redo = () => { toast.info('Funcionalidade de refazer em desenvolvimento.'); };
   const resetHistory = () => { };
   const canUndo = false;
   const canRedo = false;

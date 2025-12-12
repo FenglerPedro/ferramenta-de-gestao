@@ -108,6 +108,7 @@ export default function Agenda() {
 
     addMeeting({
       ...newMeeting,
+      title: `Reunião - ${newMeeting.clientName}`,
       date: format(selectedDate, 'yyyy-MM-dd'),
       status: 'scheduled',
     });

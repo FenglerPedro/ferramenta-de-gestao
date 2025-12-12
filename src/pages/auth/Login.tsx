@@ -53,18 +53,6 @@ export default function Login() {
       </div>
 
       <div className="space-y-4">
-        <Button
-          variant="outline"
-          className="w-full flex items-center justify-center gap-2"
-          onClick={handleGoogleLogin}
-          disabled={loading}
-        >
-          <LogIn className="h-4 w-4" />
-          Entrar com Google (Demo)
-        </Button>
-
-        <div className="flex items-center justify-center text-sm text-muted-foreground">ou</div>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -81,7 +69,6 @@ export default function Login() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Senha</Label>
-              <span className="text-sm text-muted-foreground">Sem recuperação (demo)</span>
             </div>
             <Input
               id="password"
@@ -105,15 +92,6 @@ export default function Login() {
         <Link to="/auth/register" className="font-medium text-primary hover:underline">
           Cadastre-se
         </Link>
-      </div>
-
-      <div className="p-3 bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded text-sm">
-        <p className="font-semibold">Demo Mode</p>
-        <p className="text-xs mt-1">
-          Use: <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">test@example.com</code> /
-          <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded ml-1">password123</code>
-        </p>
-        <p className="text-xs mt-2">Dados salvos apenas em localStorage (não persistem após limpar cache)</p>
       </div>
     </div>
   );

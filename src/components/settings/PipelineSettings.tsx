@@ -28,7 +28,9 @@ export function PipelineSettings() {
     const [showNewForm, setShowNewForm] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
-    const sortedStages = [...pipelineStages].sort((a, b) => a.order - b.order);
+    const sortedStages = [...pipelineStages]
+        .filter(s => s.id !== 'closed' && s.id !== 'lost')
+        .sort((a, b) => a.order - b.order);
 
     const handleEdit = (stage: PipelineStage) => {
         setEditingId(stage.id);

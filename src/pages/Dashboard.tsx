@@ -31,10 +31,14 @@ export default function Dashboard() {
     return true;
   });
 
+  // For Funnel/Pipeline metrics, we usually want to see ALL open deals, not just those created in date range
+  const currentFunnelDeals = deals;
+
   // Revenue from Paid Transactions
   const totalRevenue = transactions
     .filter(t => {
-      if (t.status !== 'paid') return false;
+      const status = t.status as string;
+      if (status !== 'paid' && status !== 'completed') return false;
       const dt = parseISO(t.date);
       if (startDate && isBefore(dt, parseISO(startDate))) return false;
       if (endDate && isAfter(dt, parseISO(endDate))) return false;
@@ -64,7 +68,7 @@ export default function Dashboard() {
   // CRM Stats
   // CRM Stats
   // Filter active deals (excluding closed/won/lost) for pipeline metrics
-  const activeDealsList = filteredDeals.filter(d =>
+  const activeDealsList = currentFunnelDeals.filter(d =>
     !d.stageId.includes('closed') &&
     !d.stageId.includes('won') &&
     d.stageId !== 'lost' &&
@@ -82,6 +86,7 @@ export default function Dashboard() {
     s.id === 'closed' ||
     s.id === 'won'
   );
+  // Closed deals should respect the date range (e.g. "Sales this month")
   const closedDeals = filteredDeals.filter((d) => closedStages.some((s) => s.id === d.stageId));
   const closedValue = closedDeals.reduce((acc, deal) => acc + deal.value, 0);
 
@@ -136,19 +141,19 @@ export default function Dashboard() {
         <StatsCard
           title={terms.deals}
           value={totalDeals}
-          subtitle="No funil de vendas"
+          subtitle="No funil de vendas (Total)"
           icon={Kanban}
         />
         <StatsCard
           title="Valor no Funil"
           value={`R$ ${pipelineValue.toLocaleString('pt-BR')}`}
-          subtitle={`Total de ${terms.deals.toLowerCase()}`}
+          subtitle={`Total em aberto`}
           icon={Target}
         />
         <StatsCard
           title="Fechados"
           value={`R$ ${closedValue.toLocaleString('pt-BR')}`}
-          subtitle={`${closedDeals.length} ${terms.deals.toLowerCase()} fechados`}
+          subtitle={`${closedDeals.length} ${terms.deals.toLowerCase()} neste período`}
           icon={DollarSign}
         />
       </div>
