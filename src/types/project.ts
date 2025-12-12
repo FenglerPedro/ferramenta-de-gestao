@@ -14,6 +14,7 @@ export interface ProjectTask {
     description?: string;
     stageId: string;
     priority?: 'low' | 'medium' | 'high';
+    assignedTo?: string;
     dueDate?: string;
     createdAt: string;
     updatedAt: string;

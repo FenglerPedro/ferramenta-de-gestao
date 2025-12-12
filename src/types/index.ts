@@ -73,6 +73,7 @@ export interface Service {
 
 export interface Meeting {
   id: string;
+  title: string;
   clientName: string;
   clientEmail: string;
   date: string;

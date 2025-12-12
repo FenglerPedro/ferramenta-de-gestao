@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface Theme {
   id: string;
@@ -14,86 +16,23 @@ export interface Theme {
   };
 }
 
-export const presetThemes: Theme[] = [
-  {
-    id: 'olive',
-    name: 'Oliva (Padrão)',
-    colors: {
-      primary: '78 44% 20%',
-      secondary: '108 53% 89%',
-      accent: '138 78% 90%',
-      background: '78 50% 92%',
-      foreground: '78 44% 20%',
-      card: '78 50% 90%',
-      muted: '108 43% 89%',
-    },
+// Keep a simple default theme for when user has none
+const defaultTheme: Theme = {
+  id: 'default',
+  name: 'Padrão',
+  colors: {
+    primary: '210 80% 40%',
+    secondary: '200 60% 90%',
+    accent: '180 70% 85%',
+    background: '210 40% 96%',
+    foreground: '210 80% 20%',
+    card: '210 40% 94%',
+    muted: '200 30% 90%',
   },
-  {
-    id: 'ocean',
-    name: 'Oceano',
-    colors: {
-      primary: '210 80% 40%',
-      secondary: '200 60% 90%',
-      accent: '180 70% 85%',
-      background: '210 40% 96%',
-      foreground: '210 80% 20%',
-      card: '210 40% 94%',
-      muted: '200 30% 90%',
-    },
-  },
-  {
-    id: 'sunset',
-    name: 'Pôr do Sol',
-    colors: {
-      primary: '20 90% 48%',
-      secondary: '35 90% 90%',
-      accent: '45 100% 85%',
-      background: '30 50% 96%',
-      foreground: '20 50% 20%',
-      card: '30 50% 94%',
-      muted: '35 40% 90%',
-    },
-  },
-  {
-    id: 'lavender',
-    name: 'Lavanda',
-    colors: {
-      primary: '270 60% 50%',
-      secondary: '280 50% 92%',
-      accent: '290 60% 88%',
-      background: '270 30% 97%',
-      foreground: '270 50% 20%',
-      card: '270 30% 95%',
-      muted: '280 25% 92%',
-    },
-  },
-  {
-    id: 'forest',
-    name: 'Floresta',
-    colors: {
-      primary: '150 60% 30%',
-      secondary: '140 40% 88%',
-      accent: '160 50% 85%',
-      background: '150 30% 95%',
-      foreground: '150 50% 15%',
-      card: '150 30% 93%',
-      muted: '140 25% 90%',
-    },
-  },
-  {
-    id: 'rose',
-    name: 'Rosê',
-    colors: {
-      primary: '340 70% 50%',
-      secondary: '350 60% 92%',
-      accent: '330 50% 88%',
-      background: '340 30% 97%',
-      foreground: '340 50% 20%',
-      card: '340 30% 95%',
-      muted: '350 25% 92%',
-    },
-  },
-];
+};
+
+// Keep this export for backward compatibility, but empty
+export const presetThemes: Theme[] = [];
 
 interface ThemeContextType {
   currentTheme: Theme;
@@ -106,84 +45,42 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [currentTheme, setCurrentTheme] = useState<Theme>(() => {
-    // Primeiro tenta carregar o tema salvo
-    const savedTheme = localStorage.getItem('app-theme');
-    if (savedTheme) {
-      try {
-        return JSON.parse(savedTheme);
-      } catch {
-        return presetThemes[0];
-      }
-    }
-    return presetThemes[0];
-  });
+  const { user } = useAuth();
+  const [currentTheme, setCurrentTheme] = useState<Theme>(defaultTheme);
+  const [customThemes, setCustomThemes] = useState<Theme[]>([]);
 
-  const [customThemes, setCustomThemes] = useState<Theme[]>(() => {
-    // Carrega os temas customizados salvos
-    const saved = localStorage.getItem('custom-themes');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
-
-  // Efeito para restaurar o tema ao montar o componente (ao recarregar a página ou login)
+  // Fetch theme from Supabase on user login
   useEffect(() => {
-    const savedTheme = localStorage.getItem('app-theme');
-    const savedCustomThemes = localStorage.getItem('custom-themes');
-
-    if (savedCustomThemes) {
-      try {
-        const customThemesData = JSON.parse(savedCustomThemes);
-        setCustomThemes(customThemesData);
-      } catch {
-        console.error('Erro ao carregar temas customizados');
+    const fetchTheme = async () => {
+      if (!user) {
+        setCurrentTheme(defaultTheme);
+        setCustomThemes([]);
+        return;
       }
-    }
 
-    if (savedTheme) {
       try {
-        const themeData = JSON.parse(savedTheme);
-        setCurrentTheme(themeData);
-      } catch {
-        console.error('Erro ao carregar tema salvo');
-      }
-    }
-  }, []);
+        const { data, error } = await supabase
+          .from('business_settings')
+          .select('custom_theme')
+          .eq('user_id', user.id)
+          .single();
 
-  // Efeito que restaura o tema ao mudar de usuário
-  useEffect(() => {
-    // Quando há mudança de autenticação, restaurar o tema do localStorage
-    const savedTheme = localStorage.getItem('app-theme');
-    const savedCustomThemes = localStorage.getItem('custom-themes');
-
-    if (savedCustomThemes) {
-      try {
-        const customThemesData = JSON.parse(savedCustomThemes);
-        setCustomThemes(customThemesData);
-      } catch {
-        console.error('Erro ao carregar temas customizados');
+        if (!error && data?.custom_theme) {
+          const themeData = data.custom_theme as { current: Theme; custom: Theme[] };
+          if (themeData.current) setCurrentTheme(themeData.current);
+          if (themeData.custom) setCustomThemes(themeData.custom);
+        }
+      } catch (e) {
+        console.error('Error fetching theme:', e);
       }
-    }
+    };
 
-    if (savedTheme) {
-      try {
-        const themeData = JSON.parse(savedTheme);
-        setCurrentTheme(themeData);
-      } catch {
-        console.error('Erro ao carregar tema salvo');
-      }
-    }
-  }, []);
+    fetchTheme();
+  }, [user]);
 
   const applyTheme = (theme: Theme) => {
     const root = document.documentElement;
-    
+
     root.style.setProperty('--primary', theme.colors.primary);
     root.style.setProperty('--primary-foreground', theme.colors.background);
     root.style.setProperty('--secondary', theme.colors.secondary);
@@ -207,27 +104,48 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--input', theme.colors.muted);
   };
 
+  // Apply theme when it changes
   useEffect(() => {
     applyTheme(currentTheme);
-    localStorage.setItem('app-theme', JSON.stringify(currentTheme));
   }, [currentTheme]);
 
-  useEffect(() => {
-    localStorage.setItem('custom-themes', JSON.stringify(customThemes));
-  }, [customThemes]);
+  // Save theme to Supabase when it changes
+  const saveThemeToSupabase = async (current: Theme, custom: Theme[]) => {
+    if (!user) return;
+
+    try {
+      await supabase
+        .from('business_settings')
+        .upsert({
+          user_id: user.id,
+          custom_theme: { current, custom }
+        }, { onConflict: 'user_id' });
+    } catch (e) {
+      console.error('Error saving theme:', e);
+    }
+  };
 
   const setTheme = (theme: Theme) => {
     setCurrentTheme(theme);
+    saveThemeToSupabase(theme, customThemes);
   };
 
   const addCustomTheme = (theme: Theme) => {
-    setCustomThemes((prev) => [...prev, theme]);
+    const newCustomThemes = [...customThemes, theme];
+    setCustomThemes(newCustomThemes);
+    saveThemeToSupabase(currentTheme, newCustomThemes);
   };
 
   const deleteCustomTheme = (id: string) => {
-    setCustomThemes((prev) => prev.filter((t) => t.id !== id));
+    const newCustomThemes = customThemes.filter((t) => t.id !== id);
+    setCustomThemes(newCustomThemes);
+
     if (currentTheme.id === id) {
-      setCurrentTheme(presetThemes[0]);
+      const newCurrent = newCustomThemes.length > 0 ? newCustomThemes[0] : defaultTheme;
+      setCurrentTheme(newCurrent);
+      saveThemeToSupabase(newCurrent, newCustomThemes);
+    } else {
+      saveThemeToSupabase(currentTheme, newCustomThemes);
     }
   };
 
@@ -245,3 +163,4 @@ export function useTheme() {
   }
   return context;
 }
+

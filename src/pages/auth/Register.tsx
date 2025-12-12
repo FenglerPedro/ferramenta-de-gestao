@@ -113,45 +113,4 @@ export default function Register() {
     </div>
   );
 }
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                        id="email"
-                        type="email"
-                        placeholder="nome@exemplo.com"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        required
-                        disabled={loading}
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="password">Senha</Label>
-                    <Input
-                        id="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        required
-                        disabled={loading}
-                        minLength={6}
-                    />
-                </div>
 
-                <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Criar Conta
-                </Button>
-            </form>
-
-            <div className="text-center text-sm">
-                Já tem uma conta?{' '}
-                <Link to="/auth/login" className="font-medium text-primary hover:underline">
-                    Entrar
-                </Link>
-            </div>
-        </div>
-    );
-}

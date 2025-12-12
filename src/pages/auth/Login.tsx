@@ -118,21 +118,4 @@ export default function Login() {
     </div>
   );
 }
-                </div>
 
-                <Button type="submit" className="w-full" disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Entrar
-                </Button>
-                </form>
-            </div>
-
-            <div className="text-center text-sm">
-                Não tem uma conta?{' '}
-                <Link to="/auth/register" className="font-medium text-primary hover:underline">
-                    Cadastre-se
-                </Link>
-            </div>
-        </div>
-    );
-}

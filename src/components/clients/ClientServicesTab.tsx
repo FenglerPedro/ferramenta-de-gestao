@@ -22,13 +22,13 @@ interface ClientServicesTabProps {
 export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
     const { purchasedServices, addPurchasedService, updatePurchasedService, deletePurchasedService, addTransaction, transactions, services } = useBusiness();
     const [isNewServiceOpen, setIsNewServiceOpen] = useState(false);
-    
+
     // Filter State
     const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
 
     // Installment Generation State
     const [generationCounts, setGenerationCounts] = useState<Record<string, number>>({});
-    
+
     // Edit Installment State
     const [editingInstallment, setEditingInstallment] = useState<{ serviceId: string, installment: Installment } | null>(null);
     const [isEditInstallmentOpen, setIsEditInstallmentOpen] = useState(false);
@@ -89,13 +89,13 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
         } else {
             // Recurring
             if (!service.installments || service.installments.length === 0) return 'active' as any; // Default to pending/active logic
-            
+
             const hasOverdue = service.installments.some(inst => inst.status === 'overdue');
             if (hasOverdue) return 'overdue';
-            
+
             const hasPending = service.installments.some(inst => inst.status === 'pending');
             if (hasPending) return 'pending';
-            
+
             // If all generated are paid
             return 'paid';
         }
@@ -104,7 +104,7 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
     const clientServices = useMemo(() => {
         const services = purchasedServices.filter(s => s.clientId === clientId);
         if (filterStatus === 'all') return services;
-        
+
         return services.filter(service => {
             const status = getServiceFinancialStatus(service);
             return status === filterStatus;
@@ -198,12 +198,12 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
         const service = purchasedServices.find(s => s.id === serviceId);
         if (!service || !service.installments) return;
 
-        const updatedInstallments = service.installments.map(inst => 
-            inst.id === installment.id 
+        const updatedInstallments = service.installments.map(inst =>
+            inst.id === installment.id
                 ? { ...inst, dueDate: editInstallmentData.dueDate, status: editInstallmentData.status }
                 : inst
         );
-        
+
         updatePurchasedService(serviceId, { installments: updatedInstallments });
         toast.success('Parcela atualizada!');
         setIsEditInstallmentOpen(false);
@@ -272,14 +272,7 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
         toast.success('Pagamento registrado!');
     };
 
-    // Calculate total paid for this service for display
-    const getPaidAmount = (service: PurchasedService) => {
-        // Look up transactions linked to this service
-        // Since we didn't store transactionId reliably in installments yet (due to ID generation), 
-        // we can look at transactions filtered by serviceId.
-        const serviceTransactions = transactions.filter(t => t.serviceId === service.id);
-        return serviceTransactions.reduce((acc, t) => acc + t.amount, 0);
-    };
+
 
     return (
         <div className="space-y-4">
@@ -288,14 +281,14 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                     <h3 className="text-lg font-medium">Serviços Contratados</h3>
                     <p className="text-sm text-muted-foreground">Gerencie assinaturas e projetos pontuais</p>
                 </div>
-                
+
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Select value={filterStatus} onValueChange={(v: any) => setFilterStatus(v)}>
                         <SelectTrigger className="w-[140px] bg-background">
-                             <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                                 <Filter className="h-4 w-4 text-muted-foreground" />
                                 <SelectValue placeholder="Status" />
-                             </div>
+                            </div>
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Todos</SelectItem>
@@ -319,8 +312,8 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                                 <div className="space-y-2">
                                     <Label>Serviços *</Label>
                                     <div className="flex gap-2 mb-2">
-                                        <Input 
-                                            placeholder="Adicionar outro serviço..." 
+                                        <Input
+                                            placeholder="Adicionar outro serviço..."
                                             value={customService}
                                             onChange={(e) => setCustomService(e.target.value)}
                                             onKeyDown={(e) => {
@@ -377,7 +370,7 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                                             {formData.selectedServices.map((serviceName) => (
                                                 <Badge key={serviceName} variant="secondary" className="gap-1">
                                                     {serviceName}
-                                                    <span 
+                                                    <span
                                                         className="cursor-pointer ml-1 hover:text-destructive"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -440,7 +433,7 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                 {clientServices.map((service) => {
                     const paidAmount = getPaidAmount(service);
                     const isPaid = paidAmount >= service.value && service.type === 'one-time';
-                    
+
                     const lastPaymentDate = transactions
                         .filter(t => t.serviceId === service.id && t.status === 'paid')
                         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.date;
@@ -456,8 +449,8 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                                         <div className="text-left">
                                             {editingServiceId === service.id ? (
                                                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                    <Input 
-                                                        value={newServiceName} 
+                                                    <Input
+                                                        value={newServiceName}
                                                         onChange={(e) => setNewServiceName(e.target.value)}
                                                         className="h-8 w-48"
                                                         autoFocus
@@ -467,8 +460,8 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                                             ) : (
                                                 <div className="flex items-center gap-2 group">
                                                     <h4 className="font-semibold">{service.serviceName}</h4>
-                                                    <Pencil 
-                                                        className="h-3 w-3 opacity-0 group-hover:opacity-100 cursor-pointer text-muted-foreground" 
+                                                    <Pencil
+                                                        className="h-3 w-3 opacity-0 group-hover:opacity-100 cursor-pointer text-muted-foreground"
                                                         onClick={(e) => { e.stopPropagation(); startEditingService(service); }}
                                                     />
                                                 </div>
@@ -521,9 +514,9 @@ export function ClientServicesTab({ clientId }: ClientServicesTabProps) {
                                             <div className="flex justify-between items-center gap-4">
                                                 <h5 className="text-sm font-medium">Parcelas / Mensalidades</h5>
                                                 <div className="flex items-center gap-2">
-                                                    <Input 
-                                                        type="number" 
-                                                        className="w-20 h-8" 
+                                                    <Input
+                                                        type="number"
+                                                        className="w-20 h-8"
                                                         value={generationCounts[service.id] || 12}
                                                         onChange={(e) => setGenerationCounts({ ...generationCounts, [service.id]: parseInt(e.target.value) || 0 })}
                                                         placeholder="12"

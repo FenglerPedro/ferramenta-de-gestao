@@ -19,7 +19,7 @@ function ColorInput({ label, value, onChange }: { label: string; value: string; 
   const hslToHex = (hsl: string): string => {
     const parts = hsl.split(' ').map((p) => parseFloat(p));
     if (parts.length < 3) return '#808080';
-    
+
     const h = parts[0];
     const s = parts[1] / 100;
     const l = parts[2] / 100;
@@ -88,18 +88,17 @@ function ColorInput({ label, value, onChange }: { label: string; value: string; 
   );
 }
 
-function ThemeCard({ theme, isSelected, onSelect, onDelete }: { 
-  theme: Theme; 
-  isSelected: boolean; 
+function ThemeCard({ theme, isSelected, onSelect, onDelete }: {
+  theme: Theme;
+  isSelected: boolean;
   onSelect: () => void;
   onDelete?: () => void;
 }) {
   return (
     <div
       onClick={onSelect}
-      className={`relative cursor-pointer rounded-lg border-2 p-3 transition-all hover:shadow-md ${
-        isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-border'
-      }`}
+      className={`relative cursor-pointer rounded-lg border-2 p-3 transition-all hover:shadow-md ${isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+        }`}
     >
       {isSelected && (
         <div className="absolute -right-2 -top-2 rounded-full bg-primary p-1">
@@ -199,26 +198,9 @@ export function ThemeCustomizer() {
           <Palette className="h-5 w-5" />
           Personalização de Cores
         </CardTitle>
-        <CardDescription>Escolha um tema pré-definido ou crie o seu próprio</CardDescription>
+        <CardDescription>Crie e personalize seu tema de cores</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div>
-          <Label className="mb-3 block">Temas Pré-definidos</Label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {presetThemes.map((theme) => (
-              <ThemeCard
-                key={theme.id}
-                theme={theme}
-                isSelected={currentTheme.id === theme.id}
-                onSelect={() => {
-                  setTheme(theme);
-                  toast.success(`Tema "${theme.name}" aplicado!`);
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
         {customThemes.length > 0 && (
           <div>
             <Label className="mb-3 block">Seus Temas</Label>
